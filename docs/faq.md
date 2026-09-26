@@ -398,11 +398,16 @@ agent follows, not something the harness imposes.
 
 ## The Codex costs in `/usage-report` look wrong
 
-The token columns are measured; the dollar column for Codex is an estimate. The
-report says so under the total, because `skills/usage-report/prices.json` has
-`rates_verified: false` for that provider — the numbers there are scaled to the
-tier each model serves, not published rates. Check them against the current price
-list, update the file, and flip the flag; the parser does not need touching.
+The token columns are measured. The dollar column uses OpenAI's published
+Standard rates, checked on the date in `verified_on` in
+`skills/usage-report/prices.json`; `_rates_note` there lists what is not
+modelled — long-context rates past 272K input, Batch/Flex/Fast mode, the
+data-residency uplift — and that `codex-auto-review`, which is not on the price
+list, is priced as `gpt-5.6-terra`; a model matching no family is priced as
+`gpt-5.6-sol`, the default. `gpt-5.6-sol` is on promotional pricing until
+at least 2026-11-21. When the price list moves, update the file; the parser does
+not need touching. A provider whose table has `rates_verified: false` gets an
+ESTIMATE note under the total.
 
 ## Why does the main session implement instead of a subagent?
 

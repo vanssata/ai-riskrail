@@ -1,5 +1,5 @@
 {
-  "_comment": "Token prices in $/MTok, per provider. usage-report.py reads this file; editing it changes the report without touching the parser. A family key matches by substring against the model name, longest key first, so 'gpt-5.6-sol' wins over 'gpt-5.6'. cache_write_multiplier and cache_read_multiplier are applied to the input price. Set rates_verified to false for a provider whose numbers you have not checked against the vendor's current price list — the report then labels its cost column as an estimate instead of presenting a guess as a fact.",
+  "_comment": "Token prices in $/MTok, per provider. usage-report.py reads this file; editing it changes the report without touching the parser. A family key matches by substring against the model name, longest key first, so 'gpt-5.4-mini' wins over 'gpt-5.4'. cache_write_multiplier and cache_read_multiplier are applied to the input price. Set rates_verified to false for a provider whose numbers you have not checked against the vendor's current price list — the report then labels its cost column as an estimate instead of presenting a guess as a fact.",
 
   "claude": {
     "rates_verified": true,
@@ -16,22 +16,26 @@
   },
 
   "codex": {
-    "rates_verified": false,
-    "verified_on": null,
-    "_rates_note": "Placeholders scaled to the tier each model serves, not published rates. Until someone checks them against the current OpenAI price list and flips rates_verified, treat the Codex cost column as relative weight between tiers and read the token columns as the real measurement.",
+    "rates_verified": true,
+    "verified_on": "2026-09-26",
+    "_rates_note": "OpenAI's Standard short-context rates from developers.openai.com/api/docs/pricing, checked 2026-09-26. Cached input is 0.1x the input price for every model listed; cache writes are 1.25x for the gpt-6 and gpt-5.6 models, and the page says cache-write pricing does not apply to gpt-5.5, gpt-5.4 and gpt-5.3-codex (Codex records no cache-write tokens for them, so the 1.25x never bills there). A model name matching no family is priced as default_family (gpt-5.6-sol) — for an unreleased gpt-5.6 variant that may overstate the cost. Not modelled: long-context rates (input past 272K; no Codex call on record has come near it), Batch/Flex/Fast-mode tiers, the 10% data-residency uplift. gpt-5.6-sol is promotional pricing, available at least through 2026-11-21 — re-check after that date. codex-auto-review is Codex's internal review model and is not on the price list; it is priced as gpt-5.6-terra, an assumption.",
     "default_family": "gpt-5.6-sol",
-    "cache_write_multiplier": 2.0,
+    "cache_write_multiplier": 1.25,
     "cache_read_multiplier": 0.1,
     "families": {
       "gpt-6-astra": [10.0, 50.0],
-      "gpt-5.6-sol": [5.0, 25.0],
-      "gpt-5.6-terra": [1.0, 5.0],
-      "gpt-5.6-luna": [2.0, 10.0],
-      "gpt-5.6": [2.0, 10.0],
-      "gpt-5.5": [2.0, 10.0],
-      "gpt-5.4-mini": [1.0, 5.0],
-      "gpt-5.4": [2.0, 10.0],
-      "codex-auto-review": [1.0, 5.0]
+      "gpt-6-sol": [2.0, 10.0],
+      "gpt-6-luna": [0.1, 0.5],
+      "gpt-5.6-cyber": [12.5, 75.0],
+      "gpt-5.6-sol": [4.0, 20.0],
+      "gpt-5.6-terra": [2.0, 12.0],
+      "gpt-5.6-luna": [0.2, 1.2],
+      "gpt-5.5": [5.0, 30.0],
+      "gpt-5.4-mini": [0.75, 4.5],
+      "gpt-5.4-nano": [0.2, 1.25],
+      "gpt-5.4": [2.5, 15.0],
+      "gpt-5.3-codex": [1.75, 14.0],
+      "codex-auto-review": [2.0, 12.0]
     }
   }
 }
