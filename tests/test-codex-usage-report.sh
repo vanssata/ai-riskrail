@@ -37,7 +37,7 @@ usage() {  # usage <response-id> <turn-id> <in> <cached> <cache-write> <out> [ru
 
 run() { python3 "$SCRIPT" --provider codex --root "$S" --all "$@" 2>&1; }
 
-# terra: $1/MTok in, $5/MTok out, cache read 0.1x, cache write 2x.
+# terra: $2/MTok in, $12/MTok out, cache read 0.1x, cache write 1.25x; sol: $4 in, $20 out.
 echo "== the per-response counter is billed, not the running total"
 {
     meta t /work t '"cli"'
@@ -45,11 +45,11 @@ echo "== the per-response counter is billed, not the running total"
     usage r1 turn1 1000000 0 0 100000   9000000 9000000
     usage r2 turn1 1000000 0 0 100000  99000000 99000000
 } > "$S/2026/09/01/rollout-2026-09-01T10-00-00-t.jsonl"
-# 2 x (1M in @ $1 + 100k out @ $5) = $2.00 + $1.00 = $3.00
+# 2 x (1M in @ $2 + 100k out @ $12) = $4.00 + $2.40 = $6.40
 out=$(run)
-printf '%s' "$out" | grep -q 'TOTAL  \$3.00' \
+printf '%s' "$out" | grep -q 'TOTAL  \$6.40' \
     && pass "each response is billed once, from usage and not from the running totals" \
-    || fail "expected TOTAL \$3.00" "$out"
+    || fail "expected TOTAL \$6.40" "$out"
 printf '%s' "$out" | grep -q 'gpt-5.6-terra (medium)' \
     && pass "the model and effort come from the turn context" || fail "model not resolved" "$out"
 
@@ -60,11 +60,11 @@ echo "== cached input is not billed twice"
     usage r1 turn1 1000000 900000 0 0
 } > "$S/2026/09/01/rollout-2026-09-01T11-00-00-t2.jsonl"
 rm "$S/2026/09/01/rollout-2026-09-01T10-00-00-t.jsonl"
-# input_tokens includes the cached part: 100k fresh @ $1 + 900k cached @ $0.10 = $0.19
+# input_tokens includes the cached part: 100k fresh @ $2 + 900k cached @ $0.20 = $0.38
 out=$(run)
-printf '%s' "$out" | grep -q 'TOTAL  \$0.19' \
+printf '%s' "$out" | grep -q 'TOTAL  \$0.38' \
     && pass "cached tokens are charged at the cache rate, not the full input rate" \
-    || fail "expected TOTAL \$0.19" "$out"
+    || fail "expected TOTAL \$0.38" "$out"
 printf '%s' "$out" | grep -qE '^codex +gpt-5.6-terra \(medium\) +100,000 ' \
     && pass "and the IN column shows fresh input only" || fail "IN column wrong" "$out"
 
@@ -81,9 +81,9 @@ echo "== a repeated response_id is counted once"
 } > "$S/2026/09/01/rollout-2026-09-01T13-00-00-t4.jsonl"
 rm "$S/2026/09/01/rollout-2026-09-01T11-00-00-t2.jsonl"
 out=$(run)
-printf '%s' "$out" | grep -q 'TOTAL  \$1.00' \
+printf '%s' "$out" | grep -q 'TOTAL  \$2.00' \
     && pass "a resumed thread replaying a response does not double-bill it" \
-    || fail "expected TOTAL \$1.00" "$out"
+    || fail "expected TOTAL \$2.00" "$out"
 
 echo "== a spawned thread is attributed to subagents, by name"
 rm "$S/2026/09/01/rollout-2026-09-01T13-00-00-t4.jsonl"
@@ -92,10 +92,10 @@ rm "$S/2026/09/01/rollout-2026-09-01T13-00-00-t4.jsonl"
     turn  turnS gpt-5.6-sol high /work
     usage rs turnS 1000000 0 0 0
 } > "$S/2026/09/01/rollout-2026-09-01T14-00-00-sub.jsonl"
-# terra 1M in = $1.00, sol 1M in = $5.00 -> total $6.00, subagents $5.00 (83%)
+# terra 1M in = $2.00, sol 1M in = $4.00 -> total $6.00, subagents $4.00 (67%)
 out=$(run)
 printf '%s' "$out" | grep -q 'TOTAL  \$6.00' && pass "both threads are counted" || fail "expected TOTAL \$6.00" "$out"
-printf '%s' "$out" | grep -q 'SUBAGENTS  \$5.00 (83% of total)' \
+printf '%s' "$out" | grep -q 'SUBAGENTS  \$4.00 (67% of total)' \
     && pass "the spawned thread is reported as a subagent" || fail "subagent share wrong" "$out"
 printf '%s' "$out" | grep -q 'ai-reviewer' \
     && pass "and named, so the report says which agent spent it" || fail "agent name missing" "$out"
@@ -208,7 +208,32 @@ MD="$TMP/malformed"; mkdir -p "$MD"
     usage rM turnM 1000000 0 0 0
 } > "$MD/rollout-m.jsonl"
 out=$(USAGE_REPORT_CACHE="" python3 "$SCRIPT" --provider codex --root "$MD" --all 2>&1); rc=$?
-# rM: 1M in @ $1 = $1.00; rx: 1e5 out @ $5 = $0.50, its non-string timestamp read as none.
-[ $rc = 0 ] && printf '%s' "$out" | grep -q 'TOTAL  \$1.50' && pass "wrong-shaped records are skipped; an exponent count and a numeric timestamp still fold" || fail "malformed rollout" "rc=$rc $out"
+# rM: 1M in @ $2 = $2.00; rx: 1e5 out @ $12 = $1.20, its non-string timestamp read as none.
+[ $rc = 0 ] && printf '%s' "$out" | grep -q 'TOTAL  \$3.20' && pass "wrong-shaped records are skipped; an exponent count and a numeric timestamp still fold" || fail "malformed rollout" "rc=$rc $out"
+
+echo "== cache writes are billed at the published 1.25x of input"
+CW="$TMP/cachewrite"; mkdir -p "$CW"
+{
+    meta w /work w '"cli"'
+    turn  turnW gpt-5.6-terra medium /work
+    usage rW turnW 0 0 1000000 0
+} > "$CW/rollout-w.jsonl"
+out=$(USAGE_REPORT_CACHE="" python3 "$SCRIPT" --provider codex --root "$CW" --all 2>&1)
+# 1M cache write on terra: 1M x $2 x 1.25 = $2.50
+printf '%s' "$out" | grep -q 'TOTAL  \$2.50' && pass "1M cache-write tokens on terra cost \$2.50" || fail "cache write multiplier" "$out"
+
+echo "== every Codex family resolves to its own row, not a shorter key"
+fam=$(python3 - "$SCRIPT" "$PLUGIN_ROOT/skills/usage-report/prices.json" <<'PY3'
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location("ur", sys.argv[1])
+ur = importlib.util.module_from_spec(spec); spec.loader.exec_module(ur)
+p = ur.load_prices()["codex"]
+fams = json.load(open(sys.argv[2]))["codex"]["families"]
+bad = [f"{k}->{p.family(k)}" for k in fams if p.family(k) != k]
+bad += [f"{k}-x->{p.family(k + '-x')}" for k in fams if p.family(k + "-x") != k]
+print(" ".join(bad) or "ok")
+PY3
+)
+[ "$fam" = ok ] && pass "each family key, and a suffixed name, prices as itself" || fail "family resolution" "$fam"
 
 summary "codex usage-report"

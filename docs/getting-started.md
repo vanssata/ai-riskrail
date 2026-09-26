@@ -178,9 +178,10 @@ rest and merges anything you had edited, for `CLAUDE.md` and `AGENTS.md` alike.
 
 Reads local transcripts from both runtimes and prints per-model token counts,
 per-day and per-session cost, the subagent share and a total — at zero model
-cost. Compare runtimes by the token columns; the Codex dollar column is an
-estimate until someone verifies the rates in `skills/usage-report/prices.json`,
-and the report says so under the total rather than quietly presenting a guess.
+cost. Both runtimes' dollar columns use published per-token rates from
+`skills/usage-report/prices.json` — an API-price equivalent, not what a
+subscription bills — and a table marked unverified is labelled an estimate under
+the total rather than quietly presented as fact.
 
 ## Where to go next
 
