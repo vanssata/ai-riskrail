@@ -110,7 +110,10 @@ class Call:
 
 # ----------------------------------------------------------------- parse cache
 
-CACHE_VERSION = 2
+# 3: _num reads "1e5" as 100,000, where 2 stored 0. A row is never re-derived
+# once folded, so a fold whose values change needs a new number, not only a
+# layout that does.
+CACHE_VERSION = 3
 
 
 _CACHE_PATH: str | None = None
@@ -327,12 +330,38 @@ def claude_empty() -> dict:
 
 def _num(value) -> int:
     """A token count as the state stores it. A transcript that writes one as a
-    float or a string still folds, and the stored row still matches what the
-    validator and the parser expect to read back."""
+    float or a string ("1e5" and "12.0" included) still folds, and the stored row
+    still matches what the validator and the parser expect to read back. NaN,
+    infinity and anything that is not a number count as nothing."""
     try:
         return int(value or 0)
     except (OverflowError, TypeError, ValueError):
+        pass
+    try:
+        return int(float(value))
+    except (OverflowError, TypeError, ValueError):
         return 0
+
+
+def _obj(value) -> dict:
+    """`value` when it is a JSON object, else an empty one. A line can be valid
+    JSON and still the wrong shape — a list, a string, a `message` that is not
+    an object — and one such line must not take the whole report down."""
+    return value if isinstance(value, dict) else {}
+
+
+def _str(value) -> str:
+    """A timestamp as the parsers slice it: a string, or nothing."""
+    return value if isinstance(value, str) else ""
+
+
+def _record(line: str) -> dict | None:
+    """One JSONL line as an object, or None for a line that is not one."""
+    try:
+        rec = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    return rec if isinstance(rec, dict) else None
 
 
 def claude_fold(state: dict, line: str) -> None:
@@ -353,15 +382,14 @@ def claude_fold(state: dict, line: str) -> None:
     """
     n = state["n"]
     state["n"] = n + 1
-    try:
-        rec = json.loads(line)
-    except json.JSONDecodeError:
+    rec = _record(line)
+    if rec is None:
         return
-    msg = rec.get("message") or {}
-    usage = msg.get("usage") or {}
+    msg = _obj(rec.get("message"))
+    usage = _obj(msg.get("usage"))
     if not usage:
         return
-    ts = rec.get("timestamp") or ""
+    ts = _str(rec.get("timestamp"))
     # A line with no id of its own is keyed by its position in the file; the
     # counter lives in the state so the key does not depend on where a read
     # happened to start.
@@ -457,12 +485,11 @@ def codex_fold(state: dict, line: str) -> None:
     the same `turn_id`, which is written before the turn runs; the last one seen
     is the fallback for a usage record whose turn was not announced in this file.
     """
-    try:
-        rec = json.loads(line)
-    except json.JSONDecodeError:
+    rec = _record(line)
+    if rec is None:
         return
     kind = rec.get("type")
-    payload = rec.get("payload") or {}
+    payload = _obj(rec.get("payload"))
 
     if kind == "session_meta":
         state["cwd"] = str(payload.get("cwd") or "")
@@ -483,14 +510,15 @@ def codex_fold(state: dict, line: str) -> None:
         state["last_model"] = [model, effort]
         state["cwd"] = str(payload.get("cwd") or state["cwd"])
     elif kind == "token_usage_record":
-        usage = payload.get("usage") or {}
+        usage = _obj(payload.get("usage"))
         if not usage:
             return
+        ts = _str(rec.get("timestamp"))
         state["pending"].append([
             str(payload.get("response_id") or f"#{len(state['pending'])}"),
             str(payload.get("turn_id") or ""),
-            (rec.get("timestamp") or "")[:10],
-            rec.get("timestamp") or "",
+            ts[:10],
+            ts,
             _num(usage.get("input_tokens")),
             _num(usage.get("cached_input_tokens")),
             _num(usage.get("cache_write_input_tokens")),
@@ -620,10 +648,9 @@ def task_report(args) -> int:
     events = []
     with open(journal, encoding="utf-8", errors="replace") as fh:
         for line in fh:
-            try:
-                events.append(json.loads(line))
-            except json.JSONDecodeError:
-                continue
+            rec = _record(line)
+            if rec is not None:
+                events.append(rec)
     stamps = [parse_ts(e.get("ts")) for e in events if parse_ts(e.get("ts"))]
     if not stamps:
         print(f"the journal of {args.task} has no timestamps")
@@ -634,7 +661,7 @@ def task_report(args) -> int:
     tier = "untiered"
     involved = []
     for e in events:
-        data = e.get("data") or {}
+        data = _obj(e.get("data"))
         if e.get("event") in ("tier_set", "tier_raised"):
             tier = data.get("tier") or data.get("to") or tier
         for rt in (e.get("runtime"), data.get("from") if e.get("event") == "runtime_handoff" else None,
@@ -699,9 +726,8 @@ def sniff_provider(root: str) -> str:
         try:
             with open(path, encoding="utf-8", errors="replace") as fh:
                 for line in fh:
-                    try:
-                        rec = json.loads(line)
-                    except json.JSONDecodeError:
+                    rec = _record(line)
+                    if rec is None:
                         continue
                     if "message" in rec:
                         return "claude"

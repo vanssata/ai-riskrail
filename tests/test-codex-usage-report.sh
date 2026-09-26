@@ -195,4 +195,20 @@ ref=$(USAGE_REPORT_CACHE="" python3 "$SCRIPT" --provider codex --root "$NL" --al
 [ "$one" = "$ref" ] && pass "an unterminated last record is reported, cached or not" || fail "unterminated record" "$one"
 [ "$two" = "$one" ] && [ "$three" = "$one" ] && pass "and it is not folded into the stored state: three rescans, one bill" || fail "unterminated record grew on a rescan" "$three"
 
+echo "== malformed rollout lines are skipped"
+MD="$TMP/malformed"; mkdir -p "$MD"
+{
+    echo '[]'; echo '"a string"'; echo 'null'
+    echo '{"type":"session_meta","payload":"not an object"}'
+    echo '{"type":"turn_context","payload":["x"]}'
+    echo '{"type":"token_usage_record","payload":{"usage":"not an object"}}'
+    echo '{"type":"token_usage_record","timestamp":12345,"payload":{"response_id":"rx","usage":{"output_tokens":"1e5"}}}'
+    meta m /work m '"cli"'
+    turn  turnM gpt-5.6-terra medium /work
+    usage rM turnM 1000000 0 0 0
+} > "$MD/rollout-m.jsonl"
+out=$(USAGE_REPORT_CACHE="" python3 "$SCRIPT" --provider codex --root "$MD" --all 2>&1); rc=$?
+# rM: 1M in @ $1 = $1.00; rx: 1e5 out @ $5 = $0.50, its non-string timestamp read as none.
+[ $rc = 0 ] && printf '%s' "$out" | grep -q 'TOTAL  \$1.50' && pass "wrong-shaped records are skipped; an exponent count and a numeric timestamp still fold" || fail "malformed rollout" "rc=$rc $out"
+
 summary "codex usage-report"
