@@ -104,8 +104,9 @@ cline() {  # cline <id> <out>
     printf '{"timestamp":"2026-09-01T10:00:00Z","message":{"id":"%s","model":"claude-sonnet-5","usage":{"input_tokens":0,"output_tokens":%s,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}\n' "$@"
 }
 cached() { USAGE_REPORT_CACHE="$C" python3 "$SCRIPT" --root "$CP" 2>&1; }
+CACHE_VERSION=$(sed -n 's/^CACHE_VERSION = //p' "$SCRIPT")
 poison() {  # poison <state-json> [version]
-    python3 - "$C" "$CP/s.jsonl" "$1" "${2:-2}" <<'PY2'
+    python3 - "$C" "$CP/s.jsonl" "$1" "${2:-$CACHE_VERSION}" <<'PY2'
 import json, os, sys
 cache, path, state, version = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
 st = os.stat(path)
@@ -156,6 +157,10 @@ printf 'not json at all' > "$C"
 cline v1 100000 > "$CP/s.jsonl"
 poison '{"n": 1, "recs": {"v9": {"*": ["2026-09-01", "2026-09-01T10:00:00Z", "claude-sonnet-5", 0, 900000, 0, 0]}}}' 999
 [ "$(cached)" = "$(plain)" ] && pass "a cache written by another version is ignored" || fail "version mismatch" "$(cached)"
+# Version 2 stored an exponent-form count as 0; that row must not outlive the fix.
+printf '{"timestamp":"2026-09-01T10:00:00Z","message":{"id":"e2","model":"claude-sonnet-5","usage":{"input_tokens":0,"output_tokens":"1e5","cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}\n' > "$CP/s.jsonl"
+poison '{"n": 1, "recs": {"e2": {"*": ["2026-09-01", "2026-09-01T10:00:00Z", "claude-sonnet-5", 0, 0, 0, 0]}}}' 2
+[ "$(cached)" = "$(plain)" ] && pass "a version-2 cache that read \"1e5\" as 0 is dropped, not trusted" || fail "stale v2 cache" "$(cached)"
 
 # --today reads a per-day slot out of the fold state; a cached state must serve
 # it exactly as a fresh one does.
@@ -222,5 +227,26 @@ poison '{"n": 0, "recs": {"m": {"*": ["2026-09-01", "t", "claude-sonnet-5", 0, "
 
 rm -f "$C"; USAGE_REPORT_CACHE="$C" python3 "$SCRIPT" --root "$CP" --no-cache > /dev/null 2>&1
 [ ! -e "$C" ] && pass "--no-cache neither reads nor writes the cache" || fail "--no-cache wrote the cache"
+
+echo "== odd token counts and malformed lines"
+OD="$TMP/odd"; mkdir -p "$OD"
+# Exponent and float spellings are still counts: 1e5 output tokens on sonnet is $1.00.
+printf '{"timestamp":"2026-09-01T10:00:00Z","message":{"id":"e1","model":"claude-sonnet-5","usage":{"input_tokens":0,"output_tokens":"1e5","cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}\n' > "$OD/s.jsonl"
+out=$(USAGE_REPORT_CACHE="" python3 "$SCRIPT" --root "$OD" 2>&1)
+printf '%s' "$out" | grep -q 'TOTAL  \$1.00' && pass "an exponent-form count (\"1e5\") is read as 100,000" || fail "exponent count" "$out"
+printf '{"timestamp":"2026-09-01T10:00:00Z","message":{"id":"e1","model":"claude-sonnet-5","usage":{"input_tokens":"nan","output_tokens":1e999,"cache_creation_input_tokens":"x","cache_read_input_tokens":null}}}\n' > "$OD/s.jsonl"
+out=$(USAGE_REPORT_CACHE="" python3 "$SCRIPT" --root "$OD" 2>&1); rc=$?
+[ $rc = 0 ] && printf '%s' "$out" | grep -qi '^no usage records matched' && pass "nan, infinity and words count as nothing, without a crash" || fail "non-finite counts" "rc=$rc $out"
+{
+    echo '[]'; echo '"a string"'; echo '42'; echo 'null'
+    echo '{"message":"not an object"}'
+    echo '{"message":{"usage":["not","an","object"]}}'
+    echo '{"message":{"id":{"x":1},"usage":{"output_tokens":5}},"timestamp":12345}'
+    line ok claude-sonnet-5 100000 0
+} > "$OD/s.jsonl"
+out=$(USAGE_REPORT_CACHE="" python3 "$SCRIPT" --root "$OD" 2>&1); rc=$?
+[ $rc = 0 ] && printf '%s' "$out" | grep -q 'TOTAL  \$1.00' && pass "valid JSON of the wrong shape is skipped, the good line still counts" || fail "malformed lines" "rc=$rc $out"
+out=$(USAGE_REPORT_CACHE="$TMP/odd-cache.json" python3 "$SCRIPT" --root "$OD" 2>&1); rc=$?
+[ $rc = 0 ] && printf '%s' "$out" | grep -q 'TOTAL  \$1.00' && pass "and the same through the cache" || fail "malformed lines, cached" "rc=$rc $out"
 
 summary "usage-report"
