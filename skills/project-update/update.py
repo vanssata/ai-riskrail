@@ -1217,6 +1217,9 @@ def main():
             ap.error("--confirm-delete only makes sense with --apply")
         if not args.confirm_delete.strip():
             ap.error("--confirm-delete needs the name of the human who confirmed the deletion")
+        if adopt.placeholder_name(args.confirm_delete):
+            ap.error("--confirm-delete got the placeholder %r; type your own name, it is the audit trail"
+                     % args.confirm_delete.strip())
         if not adopt.human_present():
             return adopt.refuse("--confirm-delete is typed by a human, and this run has no terminal",
                                 "run the same command yourself in a terminal, or set AI_UNATTENDED=1 "

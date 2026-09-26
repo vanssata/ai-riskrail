@@ -119,8 +119,10 @@ for rt in claude codex gemini junie claude,codex; do
 done
 S="$TMP/fresh-claude"; head -c 200 /dev/zero | tr '\0' 'n' >> "$S/CLAUDE.md"; printf '\n' >> "$S/CLAUDE.md"
 out=$(python3 "$UPDATE" "$S" --adopt); rc=$?
-printf '%s' "$out" | grep -q '^  split?    CLAUDE.md' && [ $rc -eq 0 ] && ! printf '%s' "$out" | grep -q unmapped \
+printf '%s' "$out" | grep -q '^  split?    CLAUDE.md' && ! printf '%s' "$out" | grep -q unmapped \
     && pass "the scaffold plus 200 B of notes is a split candidate, not unmapped" || fail "no split? for a grown CLAUDE.md (rc=$rc)" "$out"
+[ $rc -eq 4 ] && printf '%s' "$out" | head -1 | grep -q '^ADOPT_INCOMPLETE: .*a split needs a proposal' \
+    && pass "I1: the dry run exits 4 while a split awaits its proposal, as --apply would" || fail "split? dry run exit (rc=$rc)" "$out"
 S="$TMP/fresh-codex"; head -c 200 /dev/zero | tr '\0' 'n' >> "$S/AGENTS.md"; printf '\n' >> "$S/AGENTS.md"
 printf "%s" "$(python3 "$UPDATE" "$S" --adopt)" | grep -q '^  split?    AGENTS.md' && pass "the same for AGENTS.md" || fail "no split? for a grown AGENTS.md"
 out=$(python3 "$UPDATE" "$P/junie-gemini" --adopt)
@@ -243,9 +245,11 @@ echo "$out" | sed -n 3p | grep -q '^.cursorrules:' && pass "and names file:line"
 echo "== R11: a hard-scope stale reference fails no-dangling, the same in warn scope only warns"
 D="$TMP/dangling"; adopt_fixture cursor "$D"
 printf '\nSee `@.cursorrules` for the legacy rules.\n' >> "$D/.ai/policies/coding.md"; commit "$D"
-out=$(python3 "$UPDATE" "$D" --adopt)
+out=$(python3 "$UPDATE" "$D" --adopt); rc=$?
 printf '%s' "$out" | grep -qE '^  check +no-dangling +FAIL: .ai/policies/coding.md:[0-9]+ -> .cursorrules$' \
     && pass "a hard-scope reference to .cursorrules fails no-dangling" || fail "hard-scope reference not caught" "$out"
+[ $rc -eq 4 ] && printf '%s' "$out" | head -1 | grep -q '^ADOPT_INCOMPLETE: .*no-dangling FAIL' \
+    && pass "I1: a failed check is exit 4 in the dry run, not a PASS-looking exit 0" || fail "failed check dry run exit (rc=$rc)" "$out"
 W="$TMP/warn-only"; adopt_fixture cursor "$W"
 baseline=$(python3 "$UPDATE" "$W" --adopt | grep -oE 'no-dangling +PASS \([0-9]+' | grep -oE '[0-9]+$')
 mkdir -p "$W/src"; printf '# Notes\n\nSee `@.cursorrules` for the legacy rules.\n' > "$W/src/README.md"; commit "$W"
@@ -253,6 +257,8 @@ out=$(python3 "$UPDATE" "$W" --adopt)
 after=$(printf '%s' "$out" | grep -oE 'no-dangling +PASS \([0-9]+' | grep -oE '[0-9]+$')
 printf '%s' "$out" | grep -qE '^  check +no-dangling +PASS' && [ "$after" -eq $((baseline + 1)) ] \
     && pass "the same reference in src/README.md adds one warning, not a failure" || fail "warn-scope reference wrongly failed" "$out (baseline=$baseline after=$after)"
+printf '%s' "$out" | grep -qE '^  check +no-dangling +PASS \([0-9]+ warning\(s\) outside the new structure: .*src/README.md:3 -> .cursorrules' \
+    && pass "the warning is named by file:line, not only counted" || fail "warning not named" "$out"
 
 echo "== R14: coexist plans only the router edit; no-line-lost is not applicable, no-dangling checks the linked paths exist"
 CO="$TMP/coexist"; adopt_fixture cursor "$CO"
@@ -326,6 +332,14 @@ out=$(python3 "$UPDATE" "$IC" --adopt --check); rc=$?
 printf '%s' "$out" | grep -q '^adoption of 2000-01-01 incomplete: no-line-lost FAIL' && [ $rc -eq 1 ] \
     && pass "a failed check: line 5, exit 1" || fail "line 5 wrong" "$out/$rc"
 python3 "$UPDATE" "$G" --check >/dev/null; [ $? -eq 0 ] && pass "the plain --check line is unchanged by any of this (OQ10)" || fail "plain --check disturbed"
+CX="$TMP/check-coexist"; adopt_fixture cursor "$CX"
+srcsha="sha256:$(sha256sum "$CX/.cursorrules" | cut -d' ' -f1)"
+plant_record "$CX" "2000-01-01" pass pass "$srcsha"
+jq '.mode = "coexist" | .cleanup.offered = false' "$CX/.ai/reports/adopt-2000-01-01/adopt.json" > "$TMP/cx.json" \
+    && mv "$TMP/cx.json" "$CX/.ai/reports/adopt-2000-01-01/adopt.json"
+out=$(python3 "$UPDATE" "$CX" --adopt --check); rc=$?
+[ "$out" = "adopted 2000-01-01: cursor — up to date" ] && [ $rc -eq 0 ] \
+    && pass "a coexist record offers no cleanup (R14)" || fail "coexist --check line" "$out/$rc"
 
 echo "== R5: --adopt --apply refuses, exit 5, until the project is ready"
 refused() {  # refused <dir> <what>: exit 5, ADOPT_REFUSED on line 1, and nothing written
@@ -389,6 +403,13 @@ printf '%s' "$out" | grep -q '^foreign files regenerated since the adopt of .*sp
     && pass "a changed source makes --adopt --check say regenerated (R16)" || fail "no regenerated line (rc=$rc)" "$out"
 printf "%s" "$(python3 "$UPDATE" "$A")" | grep -q '^  hint      foreign files regenerated' \
     && pass "and the plain dry run carries it as a hint (D5)" || fail "no D5 hint for regeneration"
+out=$(python3 "$UPDATE" "$A" --adopt)
+printf '%s' "$out" | grep -qE '^  check +no-line-lost +FAIL: 1 line\(s\): specs/001-user-auth/spec.md:[0-9]+$' \
+    && pass "F9: the conflicted destination's lines count, so only the new line is named lost" || fail "no-line-lost after a regeneration" "$out"
+out=$(python3 "$UPDATE" "$A" --adopt --cleanup); rc=$?
+[ $rc -eq 5 ] && printf '%s' "$out" | grep -q 'restore the adopted version from git' \
+    && ! printf '%s' "$out" | grep -q 'run /project-update --adopt --apply again' \
+    && pass "F9: cleanup on a changed source gives a way out, not another --apply" || fail "changed-source cleanup hint (rc=$rc)" "$out"
 printf "%s" "$(python3 "$UPDATE" "$P/cursor")" | grep -q '^  hint      foreign structure detected: cursor' \
     && pass "an un-adopted foreign structure is a hint in the plain dry run (D5)" || fail "no D5 hint for detection"
 
@@ -647,6 +668,9 @@ out=$(python3 "$UPDATE" "$R" --adopt --cleanup); rc=$?
 cleanup_refused "$R" "coexist, even confirmed"
 
 SK="$TMP/cleanup-speckit"; adopt_fixture speckit "$SK"
+# A skill that ships more than its SKILL.md: the nested directory must go too.
+mkdir -p "$SK/.claude/skills/speckit-plan/scripts"; echo 'echo plan' > "$SK/.claude/skills/speckit-plan/scripts/helper.sh"
+commit "$SK" "nested skill file"
 python3 "$UPDATE" "$SK" --apply >/dev/null; commit "$SK" "plain update"
 python3 "$UPDATE" "$SK" --adopt --apply >/dev/null; commit "$SK" adopted
 out=$(python3 "$UPDATE" "$SK" --adopt --cleanup); rc=$?
@@ -656,6 +680,30 @@ out=$(python3 "$UPDATE" "$SK" --adopt --cleanup); rc=$?
 out=$(AI_UNATTENDED=1 python3 "$UPDATE" "$SK" --adopt --cleanup --apply --confirm-delete tester </dev/null); rc=$?
 [ $rc -eq 0 ] && [ ! -e "$SK/.specify" ] && [ -f "$SK/CLAUDE.md" ] && [ -d "$SK/.claude" ] \
     && pass "with no task in flight they are deleted; .specify/ goes, CLAUDE.md and .claude/ stay" || fail "speckit cleanup (rc=$rc)" "$out"
+[ ! -e "$SK/.claude/skills/speckit-plan" ] && [ -d "$SK/.claude/skills" ] \
+    && pass "the emptied .claude/skills/speckit-plan/ goes with its files, scripts/ included; .claude/skills/ stays" || fail "an empty speckit skill dir was left" "$(find "$SK/.claude/skills")"
+grep -q 'Run `/project-update --adopt --cleanup` to review' "$SK"/.ai/reports/adopt-*/report.md \
+    && fail "report.md still invites a cleanup review after the cleanup" || pass "after the cleanup report.md no longer invites a review"
+
+echo "== the confirmer's name is a name, and a stale task directory is explained"
+PH="$TMP/placeholder"; cleaned "$PH"; before=$(tree_sha "$PH")
+for name in "<your name>" "  <name>  " "Your Name"; do
+    out=$(AI_UNATTENDED=1 python3 "$UPDATE" "$PH" --adopt --cleanup --apply --confirm-delete "$name" </dev/null 2>&1); rc=$?
+    [ $rc -eq 2 ] && printf '%s' "$out" | grep -q 'placeholder' && [ "$(tree_sha "$PH")" = "$before" ] \
+        && pass "--confirm-delete '$name' is refused as a placeholder, nothing removed" || fail "placeholder '$name' accepted (rc=$rc)" "$out"
+done
+cd "$PLUGIN_ROOT/skills/project-update" || exit 1
+real=$(python3 -c 'import adopt, sys
+print(" ".join(n for n in sys.argv[1:] if adopt.placeholder_name(n)))' "Ana Your-Name" "I prefer your name convention" "O<Brien" "Ivan Kakurov")
+cd - >/dev/null || exit 1
+[ -z "$real" ] && pass "a real name that merely contains the words is not a placeholder" || fail "real names refused" "$real"
+out=$(AI_UNATTENDED=1 python3 "$UPDATE" "$PH" --apply --confirm-delete "<your name>" </dev/null 2>&1); rc=$?
+[ $rc -eq 2 ] && printf '%s' "$out" | grep -q 'placeholder' && pass "the plain --apply --confirm-delete refuses it too" || fail "plain placeholder (rc=$rc)" "$out"
+TD="$TMP/task-dir"; adopt_fixture cursor "$TD"
+mkdir -p "$TD/.ai/reports/T-2000-01-01-001"; echo "left behind" > "$TD/.ai/reports/T-2000-01-01-001/notes.md"
+out=$(python3 "$UPDATE" "$TD" --adopt --apply); rc=$?
+[ $rc -eq 5 ] && printf '%s' "$out" | grep -q 'leaves its .ai/reports/<task-id>/ untracked' \
+    && pass "a stale task report dir: the refusal says why and what to do" || fail "task dir refusal (rc=$rc)" "$out"
 
 echo "== review: cleanup and decisions never reach outside the project, and never lose what git cannot restore"
 # forge <dir> <jq filter> [jq args]: a hand edit of the committed adopt.json, committed.

@@ -156,9 +156,13 @@ directories and instruction files the project has (`.claude CLAUDE.md`,
 Run when `$ARGUMENTS` contains `--adopt`, or when the human says yes to the hint
 above. Every command below is `$UPDATE --adopt …`; `--mode coexist` goes on each
 of them when the team still uses the other tool (it only adds router rows to
-`.ai/AGENTS.md` and moves nothing). Exit 4 (`ADOPT_INCOMPLETE`) means a decision
-is needed and names it; exit 5 (`ADOPT_REFUSED`) means a precondition failed and
-says which. Either way, show the first line and stop there.
+`.ai/AGENTS.md` and moves nothing). Exit 5 (`ADOPT_REFUSED`) means a
+precondition failed and says which: show the first line and stop there. Exit 4
+(`ADOPT_INCOMPLETE`) — from the dry run as from `--apply` — names what is still
+open: `unmapped` files (step 3) and a `split?` waiting for its proposal (step 4)
+are yours to settle, then run the dry run again. A `conflict` on a destination
+or a check `FAIL` that is left after that is the human's: show the named lines
+and stop — never edit a destination or a source to make it pass.
 
 1. **Preconditions.** `state.py get --quiet` shows no task short of `done`,
    `git status` is clean, and `$UPDATE --check` exits 0. Otherwise stop and say
