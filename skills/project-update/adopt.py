@@ -30,6 +30,15 @@ def human_present():
     return os.isatty(0) or bool(os.environ.get("AI_UNATTENDED"))
 
 
+# The name typed into --confirm-delete is the audit trail; the template's own
+# "<your name>" copied verbatim names no one. The whole value, not a substring.
+PLACEHOLDER_NAME_RE = re.compile(r"\A\s*(?:<[^>]*>|your\s+name)\s*\Z", re.IGNORECASE)
+
+
+def placeholder_name(name):
+    return bool(PLACEHOLDER_NAME_RE.match(name or ""))
+
+
 def clean_tree(root):
     """The paths `git status` reports as changed or untracked under root, or
     None when root is not inside a git work tree. `-z` keeps paths with spaces
@@ -491,8 +500,8 @@ def plan_adopt(plan, table, mode="migrate", tools=None, shipped_block=None, skel
     if run_checks and not adoption.unmapped:
         line_status, lines, missing, missing_n = check_lines(plan, adoption)
         adoption.checks["no-line-lost"] = (line_status, lines, missing, missing_n)
-        ref_status, hard_misses, warn_n = check_refs(plan, adoption, table, instruction_files, shipped_files)
-        adoption.checks["no-dangling"] = (ref_status, hard_misses, warn_n)
+        ref_status, hard_misses, warns = check_refs(plan, adoption, table, instruction_files, shipped_files)
+        adoption.checks["no-dangling"] = (ref_status, hard_misses, warns)
     return adoption
 
 
@@ -565,9 +574,9 @@ def report(plan, adoption, applied=False):
         else:
             row("check", "no-line-lost", "FAIL: %d line(s): %s" % (missing_n, ", ".join(missing)))
     if "no-dangling" in adoption.checks:
-        status, hard_misses, warn_n = adoption.checks["no-dangling"]
+        status, hard_misses, warns = adoption.checks["no-dangling"]
         if status == "pass":
-            row("check", "no-dangling", "PASS (%d warning(s) outside the new structure)" % warn_n)
+            row("check", "no-dangling", "PASS (%s)" % warnings_text(warns))
         elif adoption.mode == "coexist":
             row("check", "no-dangling", "FAIL: %s" % ", ".join(p for _tag, p in hard_misses[:20]))
         else:
@@ -612,7 +621,9 @@ def run(plan, args, shipped_block, skeleton_cap, instruction_files=frozenset(), 
         return 2
     if requesting:
         return write_requests(plan, adoption.candidates)
-    problems = incomplete_reasons(plan, adoption, conflicts=False, checks=False)
+    # I1: the dry run answers what --apply would, so exit 4 covers a missing
+    # proposal, a conflict and a failed check as well as the unmapped files.
+    problems = incomplete_reasons(plan, adoption)
     if problems:
         print("%s: %s" % (INCOMPLETE, "; ".join(problems)))
     report(plan, adoption)
@@ -623,7 +634,7 @@ def run(plan, args, shipped_block, skeleton_cap, instruction_files=frozenset(), 
 
 def incomplete_reasons(plan, adoption, conflicts=True, checks=True):
     """Why an adopt cannot be applied as planned (exit 4), in the order a
-    human settles them. The dry run leaves conflicts and checks to the report."""
+    human settles them."""
     problems = []
     if adoption.unmapped:
         problems.append("%d file(s) have no mapping row" % len(adoption.unmapped))
@@ -712,7 +723,8 @@ def _state_line(root, shipped_block, skeleton_cap, table, instruction_files, shi
     tools = ", ".join(sorted(record_data.get("tools", {})))
     pending = sum(1 for s in record_data.get("sources", []) if s.get("cleanup") and safe_rel(s.get("path"))
                   and os.path.isfile(os.path.join(root, s["path"])))
-    tail = "; %d file(s) await cleanup" % pending if pending else ""
+    offered = (record_data.get("cleanup") or {}).get("offered", True)
+    tail = "; %d file(s) await cleanup" % pending if pending and offered else ""
     return 0, "adopted %s: %s — up to date%s" % (date, tools, tail)
 
 
@@ -777,6 +789,8 @@ def check_lines(plan, adoption):
         return "not_applicable", 0, [], 0
     targets = {d for d, _t, _r, coexist in adoption.destinations if not coexist}
     targets |= {i["target"] for i in plan.items if i["content"] is not None}
+    # A conflict leaves the destination as it is on disk: its lines are still there.
+    targets |= {i["target"] for i in plan.items if i["action"] == "conflict"}
     targets |= set(adoption.split_dests)  # on disk after --apply, `plan` has no items
     dest_lines = set()
     for target in targets:
@@ -875,19 +889,30 @@ COEXIST_LINK_RE = re.compile(r"^\| .* \| (?P<path>\S+) \(kept in place; its glob
                              r"not applied by this runtime\) \|$", re.M)
 
 
+def warnings_text(warns):
+    """The warn-scope references, named: a count alone tells a human nothing
+    they can judge."""
+    if not warns:
+        return "0 warning(s) outside the new structure"
+    shown = ", ".join("%s:%s -> %s" % w for w in warns[:10])
+    more = " and %d more" % (len(warns) - 10) if len(warns) > 10 else ""
+    return "%d warning(s) outside the new structure: %s%s" % (len(warns), shown, more)
+
+
 def check_refs(plan, adoption, table, instruction_files=frozenset(), shipped_files=None):
     """I8 no-dangling-reference: every old path (or, in coexist, every linked
     foreign path) still readable, and no reference to a path this run took
     away is left behind in the hard scope; a reference in the warn scope is
-    reported but does not fail. Returns (status, hard_misses, warn_count)."""
+    reported but does not fail. Returns (status, hard_misses, warn_misses),
+    each miss a (path, line, old path)."""
     if adoption.mode == "coexist":
         linked = {path for path, _tool, _router, _coexist in adoption.destinations}
         linked |= set(COEXIST_LINK_RE.findall(text_of(plan.read(ROUTER_FILE) or b"")))
         missing = sorted(path for path in linked if not plan.exists(path))
-        return ("fail" if missing else "pass"), [("<coexist>", p) for p in missing], 0
+        return ("fail" if missing else "pass"), [("<coexist>", p) for p in missing], []
     old = old_paths_for(adoption, table)
     if not old:
-        return "pass", [], 0
+        return "pass", [], []
     patterns = [ref_pattern(p) for p in old]
     moved = {path for path, _tool, _transform, _n, cleanup in adoption.sources if cleanup}
     files = git_files(plan.root)
@@ -895,7 +920,7 @@ def check_refs(plan, adoption, table, instruction_files=frozenset(), shipped_fil
         files = walk(plan.root)
     # What the run leaves behind: planned content first (plan.final), then disk.
     files = sorted(set(files) | set(plan.final))
-    hard_misses, warn_count = [], 0
+    hard_misses, warn_misses = [], []
     for path in files:
         if path in moved or path in old:
             continue
@@ -927,9 +952,9 @@ def check_refs(plan, adoption, table, instruction_files=frozenset(), shipped_fil
             if hard:
                 hard_misses.append((path, i, hit))
             else:
-                warn_count += 1
+                warn_misses.append((path, i, hit))
             break  # one hit per line is enough to classify it
-    return ("fail" if hard_misses else "pass"), hard_misses, warn_count
+    return ("fail" if hard_misses else "pass"), hard_misses, warn_misses
 
 
 # ---------------------------------------------------------------------------
@@ -1038,8 +1063,11 @@ def gates(root, u, planned_writes):
     outside = [p for p in dirty if not p.startswith(ALLOWED_DIRT) and p not in planned_writes]
     if outside:
         more = " and %d more" % (len(outside) - 3) if len(outside) > 3 else ""
-        return ("the tree has uncommitted changes: %s%s" % (", ".join(outside[:3]), more),
-                "commit or stash them first, so the adopt is one reviewable change")
+        how = "commit or stash them first, so the adopt is one reviewable change"
+        if any(p.startswith(".ai/reports/T-") for p in outside):
+            how += ("; an archived or abandoned task leaves its .ai/reports/<task-id>/ untracked — "
+                    "commit it or remove it")
+        return ("the tree has uncommitted changes: %s%s" % (", ".join(outside[:3]), more), how)
     if u.plain_pending(root, ignore=planned_writes):
         return "the project is behind the installed plugin", "run /project-update --apply first, then adopt"
     return None
@@ -1156,7 +1184,7 @@ def finish(plan, adoption, record, rec_path, u, table, instruction_files, shippe
     root = plan.root
     disk = u.Plan(root)  # reads the tree as it is now
     line_status, lines, missing, missing_n = check_lines(disk, adoption)
-    ref_status, hard_misses, warn_n = check_refs(disk, adoption, table, instruction_files, shipped_files)
+    ref_status, hard_misses, warns = check_refs(disk, adoption, table, instruction_files, shipped_files)
     added = check_added(disk, adoption)
     now = u.utc_now()
     tools = OrderedDict((t, {"files": sum(g.values())}) for t, g in adoption.detected.items())
@@ -1188,7 +1216,7 @@ def finish(plan, adoption, record, rec_path, u, table, instruction_files, shippe
         "sources": list(merged.values()), "dropped": len(adoption.dropped),
         "ignored": sorted({s for a, s, _t in adoption.notes if a == "ignored"}),
         "unmapped": [p for p, _t in adoption.unmapped],
-        "checks": record_checks(line_status, lines, missing_n, ref_status, hard_misses, warn_n, now),
+        "checks": record_checks(line_status, lines, missing_n, ref_status, hard_misses, warns, now),
         "cleanup": record.get("cleanup") or {"offered": adoption.mode == "migrate" and status == "applied",
                                              "confirmed_by": None, "at": None, "unattended": None,
                                              "tty": None, "deleted": []},
@@ -1200,9 +1228,10 @@ def finish(plan, adoption, record, rec_path, u, table, instruction_files, shippe
     write_json(u, root, rec_path, record)
     u.write_file(root, plan.report_dir + "/dropped.jsonl",
                  "".join(json.dumps(d, ensure_ascii=False) + "\n" for d in adoption.dropped).encode("utf-8"))
-    u.write_file(root, plan.report_dir + "/report.md", report_md(plan, adoption, record).encode("utf-8"))
+    # The disk re-check is what the record holds, so report.md names the same warnings.
     adoption.checks["no-line-lost"] = (line_status, lines, missing, missing_n)
-    adoption.checks["no-dangling"] = (ref_status, hard_misses, warn_n)
+    adoption.checks["no-dangling"] = (ref_status, hard_misses, warns)
+    u.write_file(root, plan.report_dir + "/report.md", report_md(plan, adoption, record).encode("utf-8"))
     report(plan, adoption, applied=True)
     skipped = record["original_skipped"]
     print("  original  %d B kept in %s/original/%s" % (
@@ -1218,9 +1247,9 @@ def finish(plan, adoption, record, rec_path, u, table, instruction_files, shippe
     return 0
 
 
-def record_checks(line_status, lines, missing_n, ref_status, hard_misses, warn_n, now):
+def record_checks(line_status, lines, missing_n, ref_status, hard_misses, warn_misses, now):
     return {"no_line_lost": {"status": line_status, "checked_at": now, "lines": lines, "missing": missing_n},
-            "no_dangling": {"status": ref_status, "checked_at": now, "hard": len(hard_misses), "warn": warn_n}}
+            "no_dangling": {"status": ref_status, "checked_at": now, "hard": len(hard_misses), "warn": len(warn_misses)}}
 
 
 def report_md(plan, adoption, record):
@@ -1240,12 +1269,16 @@ def report_md(plan, adoption, record):
                 checks["no_line_lost"]["status"], checks["no_line_lost"]["lines"], checks["no_line_lost"]["missing"]),
             "- no-dangling: %s (%d hard, %d warning(s))" % (
                 checks["no_dangling"]["status"], checks["no_dangling"]["hard"], checks["no_dangling"]["warn"])]
+    warns = adoption.checks.get("no-dangling", (None, [], []))[2]
+    out += ["  - warning `%s:%s` -> `%s`" % w for w in warns[:20]]
+    if len(warns) > 20:
+        out += ["  - and %d more" % (len(warns) - 20)]
     offered = [s["path"] for s in record["sources"]
                if s.get("cleanup") and os.path.exists(os.path.join(plan.root, s["path"]))]
     out += ["", "## Proposed for deletion", ""]
     if offered and record["cleanup"]["offered"]:
         out += ["- `%s`" % p for p in offered]
-        out += ["", "Run `/project-update --adopt --cleanup` to review; a human confirms the deletion."]
+        out += ["", REVIEW_LINE]
     else:
         out += ["- nothing"]
     return "\n".join(out) + "\n"
@@ -1257,6 +1290,7 @@ def report_md(plan, adoption, record):
 # ---------------------------------------------------------------------------
 
 CLEANUP_HEADING = "## Cleanup"
+REVIEW_LINE = "Run `/project-update --adopt --cleanup` to review; a human confirms the deletion."
 
 
 def plan_cleanup(plan, args, u, table, skeleton_cap, instruction_files, shipped_files):
@@ -1306,7 +1340,9 @@ def plan_cleanup(plan, args, u, table, skeleton_cap, instruction_files, shipped_
         targets.append(src)
     if changed:
         return no("source(s) changed since the adopt: %s" % ", ".join(changed[:3]),
-                  "run /project-update --adopt --apply again, then --cleanup")
+                  "an adopted destination is never rewritten, so another --apply cannot take the change; "
+                  "restore the adopted version from git (`git log -p` on that file) and then --cleanup, "
+                  "or carry the change into the destination by hand and keep the foreign file")
     # R13: both checks recomputed on the tree as it is now. A pending adopt
     # write would let them pass against the plan instead of the disk.
     adoption = plan_adopt(plan, table, "migrate", None, u.shipped_block, skeleton_cap,
@@ -1351,6 +1387,9 @@ def cleanup_run(plan, args, u, skeleton_cap, instruction_files=frozenset(), ship
             report(plan, adoption)  # the recomputed checks, so the human sees what fails
         return code
     confirm = (getattr(args, "confirm_delete", None) or "").strip()
+    if confirm and placeholder_name(confirm):  # update.py checks too; this module stands alone
+        return refuse("--confirm-delete got the placeholder %r" % confirm,
+                      "type your own name: it is the audit trail")
     if confirm and not human_present():  # update.py checks too; this module stands alone
         return refuse("--confirm-delete is typed by a human, and this run has no terminal",
                       "run the same command yourself in a terminal")
@@ -1398,6 +1437,24 @@ def cleanup_run(plan, args, u, skeleton_cap, instruction_files=frozenset(), ship
     return code
 
 
+def cleanup_top(rel, tool_roots):
+    """The highest directory a cleanup of `rel` may remove once it is empty: a
+    directory root (`.specify/`) itself, or the directory a glob root
+    (`.claude/skills/speckit-*`) matches — with everything below it, nested
+    directories included, and nothing above it. None when `rel` is under no
+    root that names a directory."""
+    for root in tool_roots:
+        if root.endswith("/") and rel.startswith(root):
+            return root.rstrip("/")
+    globs = [glob_re(r) for r in tool_roots if "*" in r]
+    ancestor = os.path.dirname(rel)
+    while ancestor:
+        if any(rx.match(ancestor) for rx in globs):
+            return ancestor
+        ancestor = os.path.dirname(ancestor)
+    return None
+
+
 def remove_confirmed(u, plan, rel, record, table):
     """Delete one confirmed source: its original kept first (bounded, into the
     record's directory), then the file, then any directory left empty inside
@@ -1408,9 +1465,9 @@ def remove_confirmed(u, plan, rel, record, table):
     os.remove(os.path.join(plan.root, rel))
     record["cleanup"]["deleted"].append(rel)
     tool = next((s["tool"] for s in record.get("sources", []) if s["path"] == rel), None)
-    roots = [r.rstrip("/") for r in table["tools"].get(tool, {}).get("roots", []) if r.endswith("/")]
+    top = cleanup_top(rel, table["tools"].get(tool, {}).get("roots", []))
     parent = os.path.dirname(rel)
-    while parent and any(parent == r or parent.startswith(r + "/") for r in roots):
+    while top and parent and (parent == top or parent.startswith(top + "/")):
         full = os.path.join(plan.root, parent)
         if not os.path.isdir(full) or os.listdir(full):
             break
@@ -1427,6 +1484,7 @@ def cleanup_report_md(u, root, where, record):
     except OSError:
         text = ""
     text = text.split("\n" + CLEANUP_HEADING + "\n", 1)[0].rstrip("\n") + "\n"
+    text = text.replace(REVIEW_LINE, "The deletion is recorded under Cleanup below.")
     c = record["cleanup"]
     runs = list(c.get("history") or []) + [c]
 
