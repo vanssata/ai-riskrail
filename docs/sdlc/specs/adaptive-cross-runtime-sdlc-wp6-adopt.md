@@ -548,3 +548,75 @@ by OQ1, concern 5 by OQ2, concern 6 by OQ3 and concern 7 by OQ4.
 | OQ10 | Fold `--adopt --check` into the plain `--check` output? | No. That keeps the assertions at `tests/test-project-update.sh:69,102,188` untouched, and `/ai-status` gets a second line. | user | **accepted as recommended** (2026-09-22) |
 | OQ11 | Accept that lines without an alphanumeric character are ignorable, one step beyond D4 (concern 2)? | Yes | user | **accepted as recommended** (2026-09-22) |
 | OQ12 | Intent open questions 1 and 2 were settled in WP2. Nothing is carried. | — | — | settled |
+
+## Amendments 2026-09-27 (manual check)
+
+The manual check of 2026-09-22 (`.ai/reports/manual-check-wp6-adopt-2026-09-22/findings.md`) ran
+adopt on three real projects and found six cases the interfaces above do not cover. The user's
+decisions of 2026-09-27 settle each one; these amendments take precedence over the sections they
+name.
+
+**A1 — I2, the Spec Kit rows (F8).** The current Spec Kit layout adds tool machinery that no row
+mapped: `.specify/{extensions,presets,workflows,integrations}/**`, `.specify/*.json` and
+`.specify/extensions.yml` are `drop` ("Spec Kit tool machinery", `cleanup: true`), placed before
+the `*/**/speckit*` row so a file named `speckit.manifest.json` is dropped for what it is, not by a
+filename coincidence. `specs/*/checklists/*.md` (from `/speckit.checklist`) is `copy` to
+`docs/sdlc/specs/{rel}.md`. `contracts/` and project-specific directories stay unmapped on purpose.
+
+**A2 — I6, glob decisions (F8).** A `decisions.json` `unmapped` key may be a glob, read with the
+table's own `*` / `**` rules. An exact path wins over a glob; among globs, the longest pattern wins.
+A glob takes only `drop` and `ignore`: a `copy` needs one destination per file, so a glob `copy` is
+refused (the file stays unmapped, with that reason).
+
+**A3 — I7 and I8, references inside migrated text (F1, F2).** Spec Kit writes the feature's own
+path into every generated document, and the constitution's Sync Impact Report names
+`.specify/templates/`. Copied verbatim, those lines dangle in hard scope and the adopt can never
+apply. Two rules, in this order:
+
+1. **Rewrite.** In the text a `copy`, `append-section` or `rule` writes, a reference to an old path
+   that this same run moves to one destination is rewritten to that destination, with the I8
+   reference pattern's boundaries. Each rewritten source line is logged in `dropped.jsonl` as
+   `"reason": "rewritten: path reference"`, `"by": "transform:<name>"` — the mechanism frontmatter
+   already uses — so no-line-lost still holds. A directory reference (`specs/001-x/`) has no single
+   destination and is left as it is.
+2. **Warn.** A hard-scope hit on a line that came verbatim from a foreign source this run adopts is
+   a warning, named `file:line -> old path`, not a failure. Lines are compared stripped, headings
+   included. The project's own lines in the same file stay hard: a stale reference the project
+   wrote itself is still a dependency. Every line of a file is classified; the scan never stops at
+   the first hit in a file. `.ai/reports/adopt-*/` is not scanned: the record names the old paths
+   on purpose.
+
+A later run can move a file that an earlier-adopted document names. When the destination on disk
+equals the earlier text once today's moves are applied to it, it is updated in place ("references
+to newly moved files updated"), not a `conflict`. A destination the human edited still is one.
+The rewrite applies only to valid UTF-8; any other source is copied byte for byte. Known limit: a
+relative link (`[spec.md](spec.md)`) is neither rewritten nor detected, and nor is a path followed by
+`.`, `#` or `?` (the I8 boundaries).
+
+**A4 — I2 and I9, `always` rules (F5).** A rule the tool loads on every request (`alwaysApply:
+true`, Kiro `inclusion: always` or no frontmatter) goes into one file, `.ai/policies/adopted/always.md`,
+under `## Adopted from <Tool> (<path under the row's root>)` — `a/index.mdc` and `b/index.mdc` stay
+apart — with the rule's description in italics above its text, idempotent by that heading as
+`append-section` is. A reference elsewhere to the rule's old path is rewritten to `always.md`
+(A3). Every root instruction file that carries the managed block gets one line outside it,
+idempotent by its exact text: ``Read `.ai/policies/adopted/always.md` first.`` (44 bytes). With no
+such file, a router row `| every task, first | policies/adopted/always.md |` points at it instead.
+
+The pointer is the plugin's own line: it counts against `_budgets.skeleton` (a file it would take
+over the budget is a `split?`), a split never places it — the proposal and the fallback both leave
+it where it is — and R9's no-line-added accepts it as generated, as it does the block.
+
+Amended the same day, by the user's decision: the first reading appended the rule's text to the
+instruction files themselves, and the budget made that unworkable — a fresh `AGENTS.md` has 55
+bytes of room under `_budgets.skeleton` (2048), so almost any always rule made it a `split?`, and a
+`--split fallback` moved the text back to `.ai/policies/adopted/`, where nothing loads it: F5 again.
+The pointer keeps the rule read on every task in both runtimes and leaves the budget alone.
+
+**A5 — I9, router rows (F6, F7).** In migrate, a `rule` destination under `.ai/policies/adopted/`
+gets its own row, whose trigger is the rule's description, else its first `# ` heading, else the
+generic text; rows from a map row with a `router` text keep one row per (tool, destination
+directory). In coexist, one row per (tool, directory of the kept path), and the suffix "its globs are
+not applied by this runtime" only on a row that covers a `rule` file whose own frontmatter has a
+globs value. A coexist row per file, the form written before this amendment, is superseded by the
+row for its directory and removed in the same edit (`-N superseded`). Migrate rows of the old form
+stay: they point at a directory that still exists.
