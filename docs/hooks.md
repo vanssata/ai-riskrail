@@ -191,12 +191,13 @@ a fast path: if nothing on the command line looks interesting, the guard exits
 after a single `grep`, which keeps it at tens of milliseconds even on a
 200-argument command.
 
-### Two rules that run before the fast path
+### Three rules that run before the fast path
 
-Everything above is about paths. Two rules are about a **command**, and they are
-evaluated before the fast path rather than after it — deliberately, and at a
-measured cost of two in-process regex matches per `Bash` call and no extra
-process (`docs/hook-performance.md`). The reason is that `state.py` and
+Everything above is about paths. Three rules are about a **command**, and they
+are evaluated before the fast path rather than after it — deliberately, and at a
+measured cost of two in-process regex matches per `Bash` call, plus a third only
+when the line contains `--co`, and no extra process
+(`docs/hook-performance.md`). The reason is that `state.py`, `update.py` and
 `context-guard.py` live in the *plugin*, not under `.ai/`, so
 `python3 …/skills/ai-task/state.py --root . approve` matches nothing in the
 guard's pattern lists: the fast path would have allowed it and returned before
@@ -222,8 +223,23 @@ presented in, after the gate was requested.
 hook, because only that one writes state: `session.json` is the evidence the
 file route rests on, so an agent that could run the hook could mint the human
 turn it needs and then answer its own gate. Reading, diffing, linting and
-testing the file are untouched — the rule fires only in command position. Both
-rules are inert unless a task is in flight.
+testing the file are untouched — the rule fires only in command position. These
+two rules are inert unless a task is in flight.
+
+**`update.py --apply --confirm-delete` from an agent session is refused** (WP6
+F3), task or no task — a deletion is irreversible either way — though, like
+every rule here, only when the session's working directory is inside a project
+with `.ai/`. The rule looks, within one command segment (a redirect's `&` does
+not end it), for a head (`update.py`, `-m update` with its target optionally
+quoted and short flags before `m`, or a variable in command position) followed by a prefix of `--confirm-delete` (argparse
+takes anything from `--co`) and a prefix of `--apply`; a backslash-newline is
+joined first. A `case *--co*` pre-check keeps it off every other command.
+`AI_UNATTENDED` in the hook's own environment lets a launcher through; typed on
+the command line it does not. The second line is in `adopt.py`: `human_gate()`
+refuses the flag under `CLAUDECODE` or a Codex session marker even with a pty,
+and the record says why the gate passed (`via: terminal | unattended`). Known
+false positive: `update.py` followed on the same segment by `--co…` and `--ap…`
+tokens that are not its own flags — search with the Grep tool instead.
 
 There is a third, cheaper route to the same place, and it is closed by the
 interpreter tripwire further down: `python3 -c 'open(".ai/state/session.json",

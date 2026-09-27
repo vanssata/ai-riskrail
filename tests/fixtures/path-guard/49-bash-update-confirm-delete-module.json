@@ -1,0 +1,1 @@
+{"case":"python3 -m update from its own directory, with --confirm-delete, is denied","expect":"deny","payload":{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"__ROOT__","tool_input":{"command":"cd skills/project-update && python3 -m update . --apply --confirm-delete ivan"}}}

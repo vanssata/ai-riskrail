@@ -300,7 +300,8 @@ lost, no reference left pointing at an old path. A file no row maps stops the
 run until a human decides. `--mode coexist` leaves the files where they are and
 only routes to them. The foreign files are deleted by a separate
 `--adopt --cleanup`, on a committed tree, and only with `--apply
---confirm-delete NAME` typed by a human. `/ai-status` says when a structure is
+--confirm-delete NAME` typed by a human in a terminal outside Claude Code or
+Codex. `/ai-status` says when a structure is
 waiting, or came back after an adopt.
 
 For work that needs a written intent and specification before any code:
@@ -548,6 +549,37 @@ and how (`via: terminal`).
 T3–T5 change. An approval you do not remember giving is a finding.
 **Source.** WP2 security review. `hooks/ai-path-guard.sh`, `docs/hooks.md`.
 
+### The deletion gate stops an agent's command, not an agent's script
+
+**Risk.** `--confirm-delete` of `/project-update` (plain `--apply` and
+`--adopt --cleanup --apply`) is refused two ways: the path guard denies an agent
+Bash command that runs `update.py` with `--apply` and any prefix of
+`--confirm-delete`, and `adopt.py` refuses the flag whenever an agent-session
+marker (`CLAUDECODE`, or Codex's `CODEX_THREAD_ID`, `CODEX_SESSION_ID`,
+`CODEX_CI`, `CODEX_SANDBOX`, `CODEX_SANDBOX_NETWORK_DISABLED`,
+`CODEX_VERSION`) is in its
+environment, even with a terminal on stdin — an agent can open one with
+`script`. The hook matches spellings, so any spelling it does not recognise is
+past it: a script file written with the Write tool, arguments held in a
+variable, command substitution (`$(…)`, backticks), arguments fed through
+`xargs` or stdin, inline `-c` code that imports or runs `update.py`, a glob or a
+renamed copy of it — and a session whose working directory has no `.ai/` above
+it, where the path guard does not run at all. Each of those still needs the
+markers unset (plus a pty) or `AI_UNATTENDED=1` on the command itself to pass
+`adopt.py`, which is deliberate, not an honest mistake. A run with the markers
+stripped under a pty records `via: terminal`, and `adopt.json` /
+`migration.json` are not write-protected, so `via` is a record, not a proof.
+**Why it stays.** Same regex limit as above: the hook sees a command line, not
+what a file it runs will do.
+**Limits.** The record says why the gate passed: `adopt.json` `cleanup.via` and
+`migration.json` `deletions[].via` are `terminal` or `unattended`. A human
+typing through Claude Code's `!` prefix, or in a shell started from an agent
+session, is refused too — that shell carries the markers.
+**What to do.** Run `--confirm-delete` in a terminal of your own. A `via:
+unattended` on a run nobody launched unattended is a finding.
+**Source.** WP6 finding F3, `.ai/reports/T-2026-09-27-003/`.
+`hooks/ai-path-guard.sh`, `skills/project-update/adopt.py` (`human_gate`).
+
 ### `AI_UNATTENDED=1` turns the human gates off
 
 **Risk.** With `AI_UNATTENDED=1` in its environment, any process passes the
@@ -558,7 +590,8 @@ approve a task or delete files with no human at the keyboard.
 turn. Without the variable they could not run at all.
 **Limits.** It never hides. The approval is recorded permanently as
 `unattended: true` in the state and the journal, `adopt.json` records
-`cleanup.unattended: true` before the first file is removed, the report prints
+`cleanup.unattended: true` and `cleanup.via: unattended` before the first file
+is removed, `migration.json` records `via: unattended` per deletion, the report prints
 `deleted unattended`, and `/ai-status` names every such event.
 **What to do.** Export it only in the environment of a launcher, never in an
 interactive shell. There it silently disables the gates for every session the

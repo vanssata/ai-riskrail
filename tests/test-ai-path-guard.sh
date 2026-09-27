@@ -117,6 +117,41 @@ done
 pass "and a writer's name in prose or a flag is not a write"
 printf '{}\n' > "$ROOT/.ai/state/current.json"
 
+echo "== ai-path-guard (--confirm-delete is a human's, not an agent's — F3)"
+confirm_cmd=$(jq -c '.payload' "$PLUGIN_ROOT/tests/fixtures/path-guard/45-bash-update-confirm-delete.json" | sed "s|__ROOT__|$ROOT|g")
+rm -f "$ROOT/.ai/state/current.json"
+decide "no task in flight: still denied, a deletion needs no task to be irreversible" deny "$confirm_cmd"
+printf '{}\n' > "$ROOT/.ai/state/current.json"
+out=$(printf '%s' "$confirm_cmd" | AI_UNATTENDED=1 "$GUARD" 2>&1)
+[ -z "$out" ] && pass "AI_UNATTENDED in the hook's own environment lets a launcher through" \
+    || fail "the unattended launcher should be allowed" "$out"
+out=$(printf '%s' "$confirm_cmd" | "$GUARD" 2>&1)
+printf '%s' "$out" | grep -q "outside Claude Code or Codex" && printf '%s' "$out" | grep -q "terminal" \
+    && pass "and the deny text names the terminal outside Claude Code or Codex" || fail "WHY_CONFIRM_DELETE is missing" "$out"
+# Spellings the review found one token away from the fixtures (T-2026-09-27-003 review).
+for c in "python3 -m \"update\" . --apply --confirm-delete x" "python3 -m 'update' . --apply --confirm-delete x" \
+         "python3 -um update . --apply --confirm-delete x" "python3 -Bm update . --apply --confirm-delete x" \
+         "python3 skills/project-update/update.py . --apply 2>&1 --confirm-delete x" \
+         "python3 skills/project-update/update.py . --apply &>/tmp/o --confirm-delete x"; do
+    decide "denied: $c" deny "$(jq -nc --arg r "$ROOT" --arg c "$c" '{hook_event_name:"PreToolUse",tool_name:"Bash",cwd:$r,tool_input:{command:$c}}')"
+done
+decide "but && still ends the segment" allow "$(jq -nc --arg r "$ROOT" '{hook_event_name:"PreToolUse",tool_name:"Bash",cwd:$r,
+    tool_input:{command:"python3 update.py . --apply && echo --confirm-delete"}}')"
+# Reading the flag, running the dry runs, and every other --co… option stay allowed.
+for c in "grep -n confirm-delete /home/u/.claude/skills/project-update/update.py" \
+         "grep -n -- --confirm-delete /home/u/.claude/skills/project-update/update.py" \
+         "python3 /home/u/.claude/skills/project-update/update.py . --adopt --cleanup" \
+         "python3 /home/u/.claude/skills/project-update/update.py . --apply" \
+         "ls --color" "foo --config x" 'git commit -m "adopt: gate"' \
+         'cd "$ROOT" && pytest --co -q' '"$PY" -m pytest --co' "pytest tests/test_update.py --co" \
+         "python3 tools/db_update.py --confirm" \
+         "sed -n 1,5p update.py | grep -- --confirm-delete" \
+         'git commit -m "update.py: --confirm-delete"'; do
+    out=$(jq -nc --arg r "$ROOT" --arg c "$c" '{hook_event_name:"PreToolUse",tool_name:"Bash",cwd:$r,
+        tool_input:{command:$c}}' | "$GUARD" 2>&1)
+    [ -z "$out" ] && pass "allowed: $c" || fail "'$c' must not be refused" "$(printf '%s' "$out" | head -c 160)"
+done
+
 echo "== ai-path-guard (project WITHOUT .ai/ — every guard must be inert)"
 BARE="$TMP/bare"; mkdir -p "$BARE"; printf 'SECRET=1\n' > "$BARE/.env"
 out=$(jq -nc --arg r "$BARE" '{hook_event_name:"PreToolUse",tool_name:"Read",cwd:$r,tool_input:{file_path:($r+"/.env")}}' | "$GUARD")

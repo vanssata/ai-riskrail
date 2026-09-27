@@ -1,0 +1,1 @@
+{"case":"the same wrapped in script -qec for a pty, with --conf=NAME, is denied","expect":"deny","payload":{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"__ROOT__","tool_input":{"command":"script -qec \"python3 /home/u/.claude/skills/project-update/update.py . --adopt --cleanup --apply --conf=ivan\" /dev/null"}}}

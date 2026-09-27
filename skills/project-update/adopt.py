@@ -21,13 +21,31 @@ import render_instructions
 REFUSED = "ADOPT_REFUSED"
 
 
-def human_present():
-    """The same condition WP2's approval uses: a terminal, or a launcher that
-    declared the run unattended. An agent has neither.
+# Set in the environment of a shell an agent runs: Claude Code's CLAUDECODE,
+# and the names Codex gives its tool calls. Present counts, an empty value too.
+AGENT_MARKERS = ("CLAUDECODE", "CODEX_THREAD_ID", "CODEX_SESSION_ID", "CODEX_CI",
+                 "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED", "CODEX_VERSION")
 
-    Duplicated from skills/ai-task/state.py (human_present) on purpose: the two
-    skills are installed independently and neither imports the other."""
-    return os.isatty(0) or bool(os.environ.get("AI_UNATTENDED"))
+
+def human_gate():
+    """(passed, via, why) for --confirm-delete. A terminal outside any agent
+    session is a human: via "terminal". Otherwise a launcher that declared the
+    run unattended (AI_UNATTENDED) passes: via "unattended", as state.py's
+    approve records it. Anything else is refused, and `why` says what was seen —
+    a terminal alone is not enough, since an agent can open a pty (F3).
+
+    Duplicated in spirit from skills/ai-task/state.py (human_present) on purpose:
+    the two skills are installed independently and neither imports the other."""
+    markers = [name for name in AGENT_MARKERS if name in os.environ]
+    if os.isatty(0) and not markers:
+        return True, "terminal", ""
+    if os.environ.get("AI_UNATTENDED"):
+        return True, "unattended", ""
+    if markers:
+        return False, None, ("this run is inside an agent session (%s %s set); run it in a terminal "
+                             "outside Claude Code or Codex, not through the `!` prefix"
+                             % (", ".join(markers), "is" if len(markers) == 1 else "are"))
+    return False, None, "this run has no terminal"
 
 
 # The name typed into --confirm-delete is the audit trail; the template's own
@@ -369,13 +387,18 @@ def plan_file(plan, adoption, path, row, tool, roots):
         # reference to the old path, and would dangle after cleanup (I8).
         heading = "## Adopted from %s (%s)" % (TOOL_TITLE.get(tool, tool), os.path.basename(path))
         current = (plan.read(dest) or b"").decode("utf-8", "replace")
+        note_adopted(adoption, dest, text)
+        updated = rewrite_adopted(adoption, dest, current)
         if heading in current.split("\n"):
-            note_adopted(adoption, dest, text)
+            if updated != current:
+                plan.add("adopt", dest, note="[%s] append-section%s" % (tool, REFS_UPDATED),
+                         content=updated.encode("utf-8"), src=path, tool=tool)
             adoption.destinations.append((dest, tool, row.get("router"), False))
             return  # already appended by an earlier run
-        content = (current.rstrip("\n") + "\n\n" + heading + "\n\n" + text.strip("\n") + "\n").lstrip("\n").encode("utf-8")
+        content = (updated.rstrip("\n") + "\n\n" + heading + "\n\n" + text.strip("\n") + "\n").lstrip("\n").encode("utf-8")
         principles = sum(1 for line in text.split("\n") if line.startswith("### "))
-        note = "append-section" + (" (hint: %d principles, at most 15)" % principles if principles > 15 else "")
+        note = "append-section" + (" (hint: %d principles, at most 15)" % principles if principles > 15 else "") \
+            + (REFS_UPDATED if updated != current else "")
     else:  # copy
         dest = expand(row["dest"], path, roots)
         content, note = data, "copy"
@@ -468,9 +491,14 @@ def append_always(plan, adoption, path, text, tool, row):
     section = (("_%s_\n\n" % title) if title else "") + body
     note_adopted(adoption, ALWAYS_FILE, section)
     current = (plan.read(ALWAYS_FILE) or b"").decode("utf-8", "replace") or ALWAYS_HEAD
+    updated = rewrite_adopted(adoption, ALWAYS_FILE, current)
+    refs = REFS_UPDATED if updated != current else ""
     if heading not in current.split("\n"):
-        content = (current.rstrip("\n") + "\n\n" + heading + "\n\n" + section + "\n").encode("utf-8")
-        plan.add("adopt", ALWAYS_FILE, note="[%s] rule: always" % tool, content=content, src=path, tool=tool)
+        content = (updated.rstrip("\n") + "\n\n" + heading + "\n\n" + section + "\n").encode("utf-8")
+        plan.add("adopt", ALWAYS_FILE, note="[%s] rule: always%s" % (tool, refs), content=content, src=path, tool=tool)
+    elif refs:  # adopted by an earlier run; a file this run moves is named in it
+        plan.add("adopt", ALWAYS_FILE, note="[%s] rule: always%s" % (tool, refs),
+                 content=updated.encode("utf-8"), src=path, tool=tool)
     if adoption.instruction_targets:
         adoption.destinations.append((ALWAYS_FILE, tool, {"skip": True}, False))
         adoption.wants_pointer = True
@@ -554,6 +582,22 @@ def rewrite_refs(path, text, moves, adoption, transform):
             adoption.dropped.append({"source": path, "line": n, "text": line,
                                      "reason": "rewritten: path reference", "by": "transform:%s" % transform})
         out.append(new)
+    return "\n".join(out)
+
+
+REFS_UPDATED = "; references to newly moved files updated"
+
+
+def rewrite_adopted(adoption, dest, current):
+    """A3 for a destination several sources share (append-section, ALWAYS_FILE):
+    a line an earlier run adopted names a file this run moves. Only a line whose
+    rewrite is a line this run adopts into `dest` changes; the project's own
+    lines stay as written, and check_refs names them (M-new-1)."""
+    foreign = adoption.adopted_lines.get(dest, ())
+    out = []
+    for line in current.split("\n"):
+        new = rewrite_refs(None, line, adoption.moves, None, None)
+        out.append(new if new != line and adopted_key(new) in foreign else line)
     return "\n".join(out)
 
 
@@ -668,7 +712,11 @@ def plan_adopt(plan, table, mode="migrate", tools=None, shipped_block=None, skel
             tool, head = nested
             adoption.unmapped.append((path, tool))
             adoption.note("unmapped", path, "[%s] below the root (%s/) — only the root is adopted" % (tool, head))
-    for tool, sig in instruction.items():
+    # A4: a file outside --tool still gets the pointer, so its budget is checked too (M-new-2).
+    pointed = [(t, s) for t in table["tools"] if t not in instruction and not table["tools"][t]["roots"]
+               for s in table["tools"][t]["signature"]
+               if pointer_bytes(adoption, s, (plan.read(s) or b"").decode("utf-8", "replace"))]
+    for tool, sig in list(instruction.items()) + pointed:
         text = (plan.read(sig) or b"").decode("utf-8", "replace")
         block = render_instructions.block_of(text)
         row = next(r for r in rows_of[tool])
@@ -1445,7 +1493,7 @@ def finish(plan, adoption, record, rec_path, u, table, instruction_files, shippe
         "unmapped": [p for p, _t in adoption.unmapped],
         "checks": record_checks(line_status, lines, missing_n, ref_status, hard_misses, warns, now),
         "cleanup": record.get("cleanup") or {"offered": adoption.mode == "migrate" and status == "applied",
-                                             "confirmed_by": None, "at": None, "unattended": None,
+                                             "confirmed_by": None, "at": None, "via": None, "unattended": None,
                                              "tty": None, "deleted": []},
     })
     if adoption.split_done:  # R9 for a split, on disk
@@ -1617,9 +1665,10 @@ def cleanup_run(plan, args, u, skeleton_cap, instruction_files=frozenset(), ship
     if confirm and placeholder_name(confirm):  # update.py checks too; this module stands alone
         return refuse("--confirm-delete got the placeholder %r" % confirm,
                       "type your own name: it is the audit trail")
-    if confirm and not human_present():  # update.py checks too; this module stands alone
-        return refuse("--confirm-delete is typed by a human, and this run has no terminal",
-                      "run the same command yourself in a terminal")
+    passed, via, why = human_gate() if confirm else (False, None, "")
+    if confirm and not passed:  # update.py checks too; this module stands alone
+        return refuse("--confirm-delete is typed by a human, and %s" % why,
+                      "run the same command yourself in a terminal outside Claude Code or Codex")
     date = where.rsplit("adopt-", 1)[-1]
     head = "adopt cleanup of %s, applied" % date if confirm else \
         "adopt cleanup dry run of %s, nothing deleted; a human confirms with --apply --confirm-delete NAME" % date
@@ -1640,9 +1689,10 @@ def cleanup_run(plan, args, u, skeleton_cap, instruction_files=frozenset(), ship
     prior = record.get("cleanup") or {}
     history = list(prior.get("history") or [])
     if prior.get("at"):  # an earlier, interrupted cleanup keeps its line in the trail
-        history.append({k: prior.get(k) for k in ("confirmed_by", "at", "unattended", "tty")})
-    record["cleanup"] = {"offered": True, "confirmed_by": confirm, "at": u.utc_now(),
-                         "unattended": not tty, "tty": tty, "deleted": list(prior.get("deleted") or [])}
+        history.append({k: prior.get(k) for k in ("confirmed_by", "at", "via", "unattended", "tty")})
+    record["cleanup"] = {"offered": True, "confirmed_by": confirm, "at": u.utc_now(), "via": via,
+                         "unattended": via == "unattended", "tty": tty,
+                         "deleted": list(prior.get("deleted") or [])}
     if history:
         record["cleanup"]["history"] = history
     plan.report_dir = plan.adopt_report_dir = where  # the record's own directory, not today's

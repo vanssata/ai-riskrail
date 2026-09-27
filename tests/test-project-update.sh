@@ -7,6 +7,13 @@ set -uo pipefail
 UPDATE="$PLUGIN_ROOT/skills/project-update/update.py"
 HISTORY="$PLUGIN_ROOT/skills/project-update/history"
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+# pty <cmd...>: the command with a terminal on stdin (util-linux script), stdout
+# and stderr merged, \r stripped; exit status is the command's. The checkout path
+# has a space, hence %q; SHELL is pinned because script -c runs it.
+pty() { SHELL=/bin/bash script -qec "$(printf '%q ' "$@")" /dev/null </dev/null | tr -d '\r'; return "${PIPESTATUS[0]}"; }
+# NOMARK: env arguments that clear every agent-session marker and AI_UNATTENDED.
+NOMARK=(-u CLAUDECODE -u CODEX_THREAD_ID -u CODEX_SESSION_ID -u CODEX_CI -u CODEX_SANDBOX -u CODEX_SANDBOX_NETWORK_DISABLED -u CODEX_VERSION -u AI_UNATTENDED)
+HAS_PTY=0; [ "$(pty python3 -c 'import os; print(os.isatty(0))' 2>/dev/null)" = True ] && HAS_PTY=1
 
 echo "== the shipped history covers every current template"
 stale=$(python3 - "$PLUGIN_ROOT" "$HISTORY" <<'PY'
@@ -442,12 +449,25 @@ out=$(env -u AI_UNATTENDED python3 "$UPDATE" "$S3" --apply --confirm-delete test
 [ $rc -eq 5 ] && pass "--confirm-delete without a human present is refused (exit 5)" || fail "expected exit 5 without a terminal, got $rc" "$out"
 [ "$(printf '%s' "$out" | head -1 | cut -d: -f1)" = ADOPT_REFUSED ] && pass "and says so on the first stdout line" || fail "no ADOPT_REFUSED on line 1" "$out"
 [ -e "$S3/.ai/legacy-notes.md" ] && pass "and the file is still there" || fail "a refused deletion removed the file"
+if [ $HAS_PTY -eq 1 ]; then
+    cp -a "$S3" "$TMP/schemaops-tty"
+    out=$(pty env "${NOMARK[@]}" CLAUDECODE=1 python3 "$UPDATE" "$S3" --apply --confirm-delete tester); rc=$?
+    [ $rc -eq 5 ] && [ -e "$S3/.ai/legacy-notes.md" ] && printf '%s' "$out" | grep -q CLAUDECODE \
+        && pass "CLAUDECODE=1 with a terminal: exit 5, names the marker, the file stays" || fail "CLAUDECODE under a pty (rc=$rc)" "$out"
+    out=$(pty env "${NOMARK[@]}" python3 "$UPDATE" "$TMP/schemaops-tty" --apply --confirm-delete tester); rc=$?
+    [ $rc -eq 0 ] && [ ! -e "$TMP/schemaops-tty/.ai/legacy-notes.md" ] \
+        && [ "$(jq -r '.deletions[0].via' "$TMP"/schemaops-tty/.ai/reports/project-update-*/migration.json)" = terminal ] \
+        && pass "a terminal and no marker: deleted, migration.json says via: terminal" || fail "human deletion (rc=$rc)" "$out"
+else
+    echo "  SKIP  no pty here (script -qec gives no terminal): the F3 terminal cases did not run"
+fi
 # The launcher's declaration, on this command only: no terminal here or in CI.
 AI_UNATTENDED=1 python3 "$UPDATE" "$S3" --apply --confirm-delete tester >/dev/null
 [ ! -e "$S3/.ai/legacy-notes.md" ] && pass "the confirmed deletion is performed" || fail "the file should be gone"
 [ -f "$S3"/.ai/reports/project-update-*/original/.ai/legacy-notes.md ] && pass "its original is kept too" || fail "no original for the deletion"
 rec=$(cat "$S3"/.ai/reports/project-update-*/migration.json)
 [ "$(printf '%s' "$rec" | jq -r '.deletions[0].confirmed_by')" = tester ] && pass "migration.json records who confirmed it" || fail "no confirmed_by" "$rec"
+[ "$(printf '%s' "$rec" | jq -r '.deletions[0].via')" = unattended ] && pass "and why the gate passed: via unattended" || fail "no via" "$rec"
 [ "$(printf '%s' "$rec" | jq -r '.to')" = "$(cat "$S3/.ai/VERSION")" ] && pass "and the version the project actually reached" || fail "migration.json disagrees with .ai/VERSION" "$rec"
 python3 "$UPDATE" "$S3" | grep -q '^0 automatic' && pass "a second run after the migrations is a no-op" || fail "not idempotent" "$(python3 "$UPDATE" "$S3")"
 unset CLAUDE_AGENTIC_MIGRATIONS CLAUDE_AGENTIC_TEMPLATES

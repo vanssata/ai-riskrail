@@ -192,8 +192,8 @@ done
    structure detected, files regenerated since the adopt, or an adopt left
    incomplete — points at `/project-update --adopt`. When the latest
    `.ai/reports/adopt-*/adopt.json` has `cleanup.unattended: true`, append
-   `(deleted unattended)`: the deletion ran without a terminal, on a launcher's
-   `AI_UNATTENDED`, and the human should know nobody typed it.
+   `(deleted unattended)`: the gate passed on a launcher's `AI_UNATTENDED`
+   (`cleanup.via: unattended`), and the human should know nobody typed it.
 
 8. **Instruction budget.** What this project loads on every turn, before any
    skill or policy is read. Advisory: the plugin measures its own block and

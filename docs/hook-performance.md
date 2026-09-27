@@ -115,6 +115,12 @@ box. `task_in_flight()`'s `jq` is consulted only after one of the two regexes ha
 matched, which is what the 8-process line costs: it is a call that is about to be
 denied, so the process is paid once, by the wrong command.
 
+**WP6 F3, one more rule before the fast path.** The `update.py --apply
+--confirm-delete` rule sits behind a `case *--co*` glob, so a command without
+`--co` pays one shell pattern test and no regex; one with it pays a parameter
+expansion (joining backslash-newlines) and one in-process `ere_match`. No
+process, no `jq`: the rule is not tied to a task in flight.
+
 The per-prompt `.ai/state/session.json` write costs nothing measurable. The same
 UserPromptSubmit payload, with and without a task in flight, is 1 process and
 25 ms either way: the write is a `stat`, a `json.dump` into a tmp file and an

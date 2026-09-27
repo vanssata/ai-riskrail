@@ -1,0 +1,1 @@
+{"case":"AI_UNATTENDED=1 typed on the command line is not the launcher's declaration: denied","expect":"deny","payload":{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"__ROOT__","tool_input":{"command":"AI_UNATTENDED=1 python3 /home/u/.claude/skills/project-update/update.py . --apply --confirm-delete x"}}}

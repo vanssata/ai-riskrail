@@ -44,6 +44,15 @@ tree_sha() {
     (cd "$1" && find . -path ./.git -prune -o -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
 }
 
+# pty <cmd...>: the command with a terminal on stdin (util-linux script), stdout
+# and stderr merged, \r stripped; exit status is the command's. The checkout path
+# has a space, hence %q; SHELL is pinned because script -c runs it.
+pty() { SHELL=/bin/bash script -qec "$(printf '%q ' "$@")" /dev/null </dev/null | tr -d '\r'; return "${PIPESTATUS[0]}"; }
+# NOMARK: env arguments that clear every agent-session marker and AI_UNATTENDED,
+# so a case sets exactly the markers it names (the suite runs inside Claude Code and in CI).
+NOMARK=(-u CLAUDECODE -u CODEX_THREAD_ID -u CODEX_SESSION_ID -u CODEX_CI -u CODEX_SANDBOX -u CODEX_SANDBOX_NETWORK_DISABLED -u CODEX_VERSION -u AI_UNATTENDED)
+HAS_PTY=0; [ "$(pty python3 -c 'import os; print(os.isatty(0))' 2>/dev/null)" = True ] && HAS_PTY=1
+
 echo "== fixtures are stored encoded (the path guard and the runtimes never see a real name)"
 out=$(find "$FIX" -name '.*' -o -name CLAUDE.md -o -name AGENTS.md -o -name GEMINI.md)
 [ -z "$out" ] && pass "no dot-file and no real instruction file under tests/fixtures/adopt" || fail "a fixture path is stored unencoded" "$out"
@@ -336,6 +345,14 @@ B4="$TMP/a4-budget"; adopt_fixture cursor "$B4"
 out=$(python3 "$UPDATE" "$B4" --adopt --apply); rc=$?
 [ $rc -eq 0 ] && ! printf '%s' "$out" | grep -q 'split?' && grep -q 'Convention number 400 ' "$B4/.ai/policies/adopted/always.md" \
     && pass "a 25 KB always rule does not touch the instruction file's budget" || fail "large always rule (rc=$rc)" "$out"
+# M-new-2: --tool names cursor only, yet CLAUDE.md gets the pointer, so its budget is checked too.
+B5="$TMP/a4-budget-tool"; adopt_fixture cursor "$B5"
+python3 "$UPDATE" "$B5" --apply >/dev/null
+size=$(wc -c < "$B5/CLAUDE.md"); { printf '\n'; head -c $((2048 - 20 - size - 1)) /dev/zero | tr '\0' 'x'; } >> "$B5/CLAUDE.md"
+commit "$B5" "CLAUDE.md 20 B under the skeleton budget"
+out=$(python3 "$UPDATE" "$B5" --adopt --tool cursor); rc=$?
+[ $rc -eq 4 ] && printf '%s' "$out" | grep -qE 'split\?.*CLAUDE.md|CLAUDE.md.*split\?' \
+    && pass "--tool cursor: the pointer that takes CLAUDE.md over its budget makes it a split?" || fail "pointer unchecked under --tool (rc=$rc, $(wc -c < "$B5/CLAUDE.md") B)" "$out"
 
 echo "== A5: router rows carry a trigger; coexist has one row per directory"
 A5="$TMP/a5"; adopt_fixture cursor "$A5"
@@ -429,6 +446,38 @@ out=$(python3 "$UPDATE" "$V5" --adopt --apply); rc=$?
 [ $rc -eq 0 ] && ! printf '%s' "$out" | grep -q '^  conflict' \
     && grep -qF 'See also `docs/sdlc/specs/002-cart.md`.' "$V5/docs/sdlc/specs/001-user-auth-research.md" \
     && pass "a later run updates the reference in an untouched destination instead of a conflict" || fail "later-run rewrite (rc=$rc)" "$out"
+# B5b (M-new-1): the same for a file named in an append-section destination and in always.md.
+V5B="$TMP/rv-later-append"; adopt_fixture speckit "$V5B"
+printf '\nSee also `specs/002-cart/spec.md`.\n' >> "$V5B/.specify/memory/constitution.md"; commit "$V5B"
+python3 "$UPDATE" "$V5B" --apply >/dev/null; commit "$V5B" "plain update"
+python3 "$UPDATE" "$V5B" --adopt --apply >/dev/null; commit "$V5B" adopted
+mkdir -p "$V5B/specs/002-cart"; printf '# Cart\n\nThe cart holds items.\n' > "$V5B/specs/002-cart/spec.md"; commit "$V5B" "second feature"
+out=$(python3 "$UPDATE" "$V5B" --adopt --apply); rc=$?
+[ $rc -eq 0 ] && grep -qF 'See also `docs/sdlc/specs/002-cart.md`.' "$V5B/docs/sdlc/constitution.md" \
+    && [ "$(grep -c '^## Adopted from Spec Kit (constitution.md)$' "$V5B/docs/sdlc/constitution.md")" -eq 1 ] \
+    && pass "a later run updates the reference in an append-section destination" || fail "later-run append-section rewrite (rc=$rc)" "$out"
+V5D="$TMP/rv-later-own-line"; adopt_fixture speckit "$V5D"
+printf '\nSee also `specs/002-cart/spec.md`.\n' >> "$V5D/.specify/memory/constitution.md"; commit "$V5D"
+python3 "$UPDATE" "$V5D" --apply >/dev/null; commit "$V5D" "plain update"
+python3 "$UPDATE" "$V5D" --adopt --apply >/dev/null; commit "$V5D" adopted
+printf '\nC11. Every cart change updates `specs/002-cart/spec.md` by hand.\n' >> "$V5D/docs/sdlc/constitution.md"; commit "$V5D" "own principle"
+mkdir -p "$V5D/specs/002-cart"; printf '# Cart\n\nThe cart holds items.\n' > "$V5D/specs/002-cart/spec.md"; commit "$V5D" "second feature"
+own=$(grep -n '^C11\. ' "$V5D/docs/sdlc/constitution.md" | cut -d: -f1)
+out=$(python3 "$UPDATE" "$V5D" --adopt); rc=$?
+[ $rc -eq 4 ] && printf '%s' "$out" | grep -qE "no-dangling +FAIL: docs/sdlc/constitution.md:$own -> specs/" \
+    && ! printf '%s' "$out" | grep -qE "FAIL: .*constitution.md:[0-9]+ -> specs/.*constitution.md:[0-9]+ -> specs/" \
+    && printf '%s' "$out" | grep -q 'append-section; references to newly moved files updated' \
+    && pass "the project's own line naming a moved file stays as written and fails hard; the adopted one is rewritten, and the plan says so" \
+    || fail "own constitution line (rc=$rc, line $own)" "$out"
+V5C="$TMP/rv-later-always"; adopt_fixture kiro "$V5C"
+printf '\nSee also `.kiro/specs/cart/requirements.md`.\n' >> "$V5C/.kiro/steering/tech.md"; commit "$V5C"
+python3 "$UPDATE" "$V5C" --apply >/dev/null; commit "$V5C" "plain update"
+python3 "$UPDATE" "$V5C" --adopt --apply >/dev/null; commit "$V5C" adopted
+mkdir -p "$V5C/.kiro/specs/cart"; printf '# Cart\n\nThe cart holds items.\n' > "$V5C/.kiro/specs/cart/requirements.md"; commit "$V5C" "second feature"
+out=$(python3 "$UPDATE" "$V5C" --adopt --apply); rc=$?
+[ $rc -eq 0 ] && ! grep -qF '.kiro/specs/cart/requirements.md' "$V5C/.ai/policies/adopted/always.md" \
+    && grep -qF 'See also `' "$V5C/.ai/policies/adopted/always.md" \
+    && pass "a later run updates the reference in always.md" || fail "later-run always.md rewrite (rc=$rc)" "$out"
 # B6: coexist rows written per file before 2026-09-27 are superseded, not kept beside the new ones.
 V6="$TMP/rv-old-rows"; adopt_fixture speckit "$V6"
 python3 "$UPDATE" "$V6" --apply >/dev/null; commit "$V6" "plain update"
@@ -829,7 +878,7 @@ out=$(python3 "$UPDATE" "$CL" --adopt --cleanup --apply 2>&1); rc=$?
 out=$(python3 "$UPDATE" "$CL" --adopt --cleanup --apply --confirm-delete tester </dev/null); rc=$?
 [ $rc -eq 5 ] && printf '%s' "$out" | head -1 | grep -q '^ADOPT_REFUSED' && [ "$(tree_sha "$CL")" = "$before" ] \
     && pass "--confirm-delete with no terminal and no AI_UNATTENDED: exit 5, nothing removed" || fail "no-human cleanup (rc=$rc)" "$out"
-out=$(AI_UNATTENDED=1 python3 "$UPDATE" "$CL" --adopt --cleanup --apply --confirm-delete tester </dev/null); rc=$?
+out=$(CLAUDECODE=1 AI_UNATTENDED=1 python3 "$UPDATE" "$CL" --adopt --cleanup --apply --confirm-delete tester </dev/null); rc=$?
 REC=$(ls -d "$CL"/.ai/reports/adopt-*/)
 gone=0; kept=0
 for f in $want; do [ -e "$CL/$f" ] || gone=$((gone + 1)); [ -f "$REC/original/$f" ] && kept=$((kept + 1)); done
@@ -839,6 +888,8 @@ n=$(printf '%s\n' "$want" | wc -l)
 [ "$(jq -r '.cleanup.unattended' "$REC/adopt.json")" = true ] && [ "$(jq -r '.cleanup.confirmed_by' "$REC/adopt.json")" = tester ] \
     && [ "$(jq -r '.cleanup.tty' "$REC/adopt.json")" = false ] && [ "$(jq -r '.cleanup.at | length > 0' "$REC/adopt.json")" = true ] \
     && pass "adopt.json.cleanup records who, when, unattended and tty" || fail "cleanup record" "$(jq .cleanup "$REC/adopt.json")"
+[ "$(jq -r '.cleanup.via' "$REC/adopt.json")" = unattended ] \
+    && pass "and via: unattended — AI_UNATTENDED passed the gate inside an agent session" || fail "cleanup via" "$(jq .cleanup "$REC/adopt.json")"
 grep -q 'deleted unattended' "$REC/report.md" && printf '%s' "$out" | grep -q '(deleted unattended)' \
     && pass "report.md and the output say deleted unattended" || fail "no deleted unattended line"
 [ ! -d "$CL/.cursor/rules" ] && [ -f "$CL/.cursor/mcp.json" ] \
@@ -853,6 +904,35 @@ git -C "$CL" checkout -q HEAD~1 -- .cursorrules
 out=$(python3 "$UPDATE" "$CL" --adopt --check); rc=$?
 [ $rc -eq 1 ] && printf '%s' "$out" | grep -q '^foreign files regenerated since the adopt of .*\.cursorrules' \
     && pass "a .cursorrules that reappears byte for byte says regenerated (R16)" || fail "reappearing file (rc=$rc)" "$out"
+
+echo "== F3: an agent session cannot pass --confirm-delete, even with a terminal"
+if [ $HAS_PTY -eq 1 ]; then
+    TT="$TMP/cleanup-tty"; cleaned "$TT"; before=$(tree_sha "$TT")
+    out=$(pty env "${NOMARK[@]}" CLAUDECODE=1 python3 "$UPDATE" "$TT" --adopt --cleanup --apply --confirm-delete tester); rc=$?
+    [ $rc -eq 5 ] && [ "$(printf '%s' "$out" | head -1 | cut -d: -f1)" = ADOPT_REFUSED ] && [ "$(tree_sha "$TT")" = "$before" ] \
+        && printf '%s' "$out" | grep -q CLAUDECODE \
+        && pass "CLAUDECODE=1 with a terminal: exit 5, ADOPT_REFUSED names CLAUDECODE, nothing removed" || fail "CLAUDECODE under a pty (rc=$rc)" "$out"
+    out=$(pty env "${NOMARK[@]}" CODEX_THREAD_ID=x python3 "$UPDATE" "$TT" --adopt --cleanup --apply --confirm-delete tester); rc=$?
+    [ $rc -eq 5 ] && [ "$(printf '%s' "$out" | head -1 | cut -d: -f1)" = ADOPT_REFUSED ] && [ "$(tree_sha "$TT")" = "$before" ] \
+        && printf '%s' "$out" | grep -q CODEX_THREAD_ID \
+        && pass "CODEX_THREAD_ID alone with a terminal: exit 5, names it, nothing removed" || fail "CODEX_THREAD_ID under a pty (rc=$rc)" "$out"
+    # adopt.py stands alone: its own gate says no under a marker, whatever stdin is.
+    out=$(cd "$PLUGIN_ROOT/skills/project-update" && pty env "${NOMARK[@]}" CODEX_SANDBOX= python3 -c 'import adopt; print(adopt.human_gate()[0])')
+    [ "$out" = False ] && pass "adopt.human_gate() refuses an empty-valued marker under a terminal" || fail "human_gate under CODEX_SANDBOX=" "$out"
+    out=$(cd "$PLUGIN_ROOT/skills/project-update" && pty env "${NOMARK[@]}" CODEX_VERSION=0.1 python3 -c 'import adopt; g = adopt.human_gate(); print(g[0], g[2])')
+    [ "${out%% *}" = False ] && printf '%s' "$out" | grep -q '(CODEX_VERSION is set)' \
+        && pass "adopt.human_gate() refuses CODEX_VERSION alone: 'is set'" || fail "human_gate under CODEX_VERSION" "$out"
+    out=$(cd "$PLUGIN_ROOT/skills/project-update" && pty env "${NOMARK[@]}" CLAUDECODE=1 CODEX_CI=1 python3 -c 'import adopt; print(adopt.human_gate()[2])')
+    printf '%s' "$out" | grep -q '(CLAUDECODE, CODEX_CI are set)' \
+        && pass "two markers: the refusal names both and says 'are set'" || fail "plural markers" "$out"
+    out=$(pty env "${NOMARK[@]}" python3 "$UPDATE" "$TT" --adopt --cleanup --apply --confirm-delete tester); rc=$?
+    TREC=$(ls "$TT"/.ai/reports/adopt-*/adopt.json)
+    [ $rc -eq 0 ] && [ ! -e "$TT/.cursorrules" ] && pass "a terminal and no marker: the cleanup runs" || fail "human cleanup (rc=$rc)" "$out"
+    [ "$(jq -r '.cleanup.via' "$TREC")" = terminal ] && [ "$(jq -r '.cleanup.unattended' "$TREC")" = false ] && [ "$(jq -r '.cleanup.tty' "$TREC")" = true ] \
+        && pass "and adopt.json.cleanup says via: terminal, unattended: false, tty: true" || fail "terminal cleanup record" "$(jq .cleanup "$TREC")"
+else
+    echo "  SKIP  no pty here (script -qec gives no terminal): the F3 terminal cases did not run"
+fi
 
 LD="$TMP/cleanup-later"; cleaned "$LD"
 dirs=$(ls "$LD/.ai/reports" | grep -c '^adopt-')
@@ -946,11 +1026,11 @@ cleanup_refused "$R" "a git-ignored cleanup source"
 printf '%s' "$out" | head -1 | grep -q 'git does not track' && [ -f "$R/.cursor/rules/local.mdc" ] \
     && pass "it names the untracked file, which stays" || fail "ignored-file refusal" "$out"
 R="$TMP/cleanup-resumed"; cleaned "$R"
-forge "$R" '.cleanup += {"confirmed_by":"first","at":"2000-01-01T00:00:00Z","unattended":false,"tty":true,"deleted":["gone-earlier.md"]}'
+forge "$R" '.cleanup += {"confirmed_by":"first","at":"2000-01-01T00:00:00Z","via":"terminal","unattended":false,"tty":true,"deleted":["gone-earlier.md"]}'
 AI_UNATTENDED=1 python3 "$UPDATE" "$R" --adopt --cleanup --apply --confirm-delete tester </dev/null >/dev/null
 rec=$(ls "$R"/.ai/reports/adopt-*/adopt.json)
 [ "$(jq -r '.cleanup.deleted[0]' "$rec")" = gone-earlier.md ] && [ "$(jq -r '.cleanup.history[0].confirmed_by' "$rec")" = first ] \
-    && [ "$(jq -r '.cleanup.confirmed_by' "$rec")" = tester ] \
+    && [ "$(jq -r '.cleanup.confirmed_by' "$rec")" = tester ] && [ "$(jq -r '.cleanup.history[0].via' "$rec")" = terminal ] \
     && pass "a second cleanup keeps the first one's deletions and who confirmed them" || fail "cleanup audit trail" "$(jq .cleanup "$rec")"
 grep -q 'confirmed by first' "$(dirname "$rec")/report.md" && grep -q 'over 2 run(s)' "$(dirname "$rec")/report.md" \
     && pass "and report.md names both runs, not only the last" || fail "report.md credits only the last run"
