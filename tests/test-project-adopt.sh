@@ -50,7 +50,7 @@ tree_sha() {
 pty() { SHELL=/bin/bash script -qec "$(printf '%q ' "$@")" /dev/null </dev/null | tr -d '\r'; return "${PIPESTATUS[0]}"; }
 # NOMARK: env arguments that clear every agent-session marker and AI_UNATTENDED,
 # so a case sets exactly the markers it names (the suite runs inside Claude Code and in CI).
-NOMARK=(-u CLAUDECODE -u CODEX_THREAD_ID -u CODEX_SESSION_ID -u CODEX_CI -u CODEX_SANDBOX -u CODEX_SANDBOX_NETWORK_DISABLED -u AI_UNATTENDED)
+NOMARK=(-u CLAUDECODE -u CODEX_THREAD_ID -u CODEX_SESSION_ID -u CODEX_CI -u CODEX_SANDBOX -u CODEX_SANDBOX_NETWORK_DISABLED -u CODEX_VERSION -u AI_UNATTENDED)
 HAS_PTY=0; [ "$(pty python3 -c 'import os; print(os.isatty(0))' 2>/dev/null)" = True ] && HAS_PTY=1
 
 echo "== fixtures are stored encoded (the path guard and the runtimes never see a real name)"
@@ -919,6 +919,12 @@ if [ $HAS_PTY -eq 1 ]; then
     # adopt.py stands alone: its own gate says no under a marker, whatever stdin is.
     out=$(cd "$PLUGIN_ROOT/skills/project-update" && pty env "${NOMARK[@]}" CODEX_SANDBOX= python3 -c 'import adopt; print(adopt.human_gate()[0])')
     [ "$out" = False ] && pass "adopt.human_gate() refuses an empty-valued marker under a terminal" || fail "human_gate under CODEX_SANDBOX=" "$out"
+    out=$(cd "$PLUGIN_ROOT/skills/project-update" && pty env "${NOMARK[@]}" CODEX_VERSION=0.1 python3 -c 'import adopt; g = adopt.human_gate(); print(g[0], g[2])')
+    [ "${out%% *}" = False ] && printf '%s' "$out" | grep -q '(CODEX_VERSION is set)' \
+        && pass "adopt.human_gate() refuses CODEX_VERSION alone: 'is set'" || fail "human_gate under CODEX_VERSION" "$out"
+    out=$(cd "$PLUGIN_ROOT/skills/project-update" && pty env "${NOMARK[@]}" CLAUDECODE=1 CODEX_CI=1 python3 -c 'import adopt; print(adopt.human_gate()[2])')
+    printf '%s' "$out" | grep -q '(CLAUDECODE, CODEX_CI are set)' \
+        && pass "two markers: the refusal names both and says 'are set'" || fail "plural markers" "$out"
     out=$(pty env "${NOMARK[@]}" python3 "$UPDATE" "$TT" --adopt --cleanup --apply --confirm-delete tester); rc=$?
     TREC=$(ls "$TT"/.ai/reports/adopt-*/adopt.json)
     [ $rc -eq 0 ] && [ ! -e "$TT/.cursorrules" ] && pass "a terminal and no marker: the cleanup runs" || fail "human cleanup (rc=$rc)" "$out"

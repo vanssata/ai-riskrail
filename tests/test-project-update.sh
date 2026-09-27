@@ -12,7 +12,7 @@ TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 # has a space, hence %q; SHELL is pinned because script -c runs it.
 pty() { SHELL=/bin/bash script -qec "$(printf '%q ' "$@")" /dev/null </dev/null | tr -d '\r'; return "${PIPESTATUS[0]}"; }
 # NOMARK: env arguments that clear every agent-session marker and AI_UNATTENDED.
-NOMARK=(-u CLAUDECODE -u CODEX_THREAD_ID -u CODEX_SESSION_ID -u CODEX_CI -u CODEX_SANDBOX -u CODEX_SANDBOX_NETWORK_DISABLED -u AI_UNATTENDED)
+NOMARK=(-u CLAUDECODE -u CODEX_THREAD_ID -u CODEX_SESSION_ID -u CODEX_CI -u CODEX_SANDBOX -u CODEX_SANDBOX_NETWORK_DISABLED -u CODEX_VERSION -u AI_UNATTENDED)
 HAS_PTY=0; [ "$(pty python3 -c 'import os; print(os.isatty(0))' 2>/dev/null)" = True ] && HAS_PTY=1
 
 echo "== the shipped history covers every current template"

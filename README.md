@@ -556,7 +556,8 @@ T3–T5 change. An approval you do not remember giving is a finding.
 Bash command that runs `update.py` with `--apply` and any prefix of
 `--confirm-delete`, and `adopt.py` refuses the flag whenever an agent-session
 marker (`CLAUDECODE`, or Codex's `CODEX_THREAD_ID`, `CODEX_SESSION_ID`,
-`CODEX_CI`, `CODEX_SANDBOX`, `CODEX_SANDBOX_NETWORK_DISABLED`) is in its
+`CODEX_CI`, `CODEX_SANDBOX`, `CODEX_SANDBOX_NETWORK_DISABLED`,
+`CODEX_VERSION`) is in its
 environment, even with a terminal on stdin — an agent can open one with
 `script`. The hook matches spellings, so any spelling it does not recognise is
 past it: a script file written with the Write tool, arguments held in a

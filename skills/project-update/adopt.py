@@ -24,7 +24,7 @@ REFUSED = "ADOPT_REFUSED"
 # Set in the environment of a shell an agent runs: Claude Code's CLAUDECODE,
 # and the names Codex gives its tool calls. Present counts, an empty value too.
 AGENT_MARKERS = ("CLAUDECODE", "CODEX_THREAD_ID", "CODEX_SESSION_ID", "CODEX_CI",
-                 "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED")
+                 "CODEX_SANDBOX", "CODEX_SANDBOX_NETWORK_DISABLED", "CODEX_VERSION")
 
 
 def human_gate():
@@ -42,8 +42,9 @@ def human_gate():
     if os.environ.get("AI_UNATTENDED"):
         return True, "unattended", ""
     if markers:
-        return False, None, ("this run is inside an agent session (%s is set); run it in a terminal "
-                             "outside Claude Code or Codex, not through the `!` prefix" % ", ".join(markers))
+        return False, None, ("this run is inside an agent session (%s %s set); run it in a terminal "
+                             "outside Claude Code or Codex, not through the `!` prefix"
+                             % (", ".join(markers), "is" if len(markers) == 1 else "are"))
     return False, None, "this run has no terminal"
 
 
