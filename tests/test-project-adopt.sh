@@ -429,6 +429,38 @@ out=$(python3 "$UPDATE" "$V5" --adopt --apply); rc=$?
 [ $rc -eq 0 ] && ! printf '%s' "$out" | grep -q '^  conflict' \
     && grep -qF 'See also `docs/sdlc/specs/002-cart.md`.' "$V5/docs/sdlc/specs/001-user-auth-research.md" \
     && pass "a later run updates the reference in an untouched destination instead of a conflict" || fail "later-run rewrite (rc=$rc)" "$out"
+# B5b (M-new-1): the same for a file named in an append-section destination and in always.md.
+V5B="$TMP/rv-later-append"; adopt_fixture speckit "$V5B"
+printf '\nSee also `specs/002-cart/spec.md`.\n' >> "$V5B/.specify/memory/constitution.md"; commit "$V5B"
+python3 "$UPDATE" "$V5B" --apply >/dev/null; commit "$V5B" "plain update"
+python3 "$UPDATE" "$V5B" --adopt --apply >/dev/null; commit "$V5B" adopted
+mkdir -p "$V5B/specs/002-cart"; printf '# Cart\n\nThe cart holds items.\n' > "$V5B/specs/002-cart/spec.md"; commit "$V5B" "second feature"
+out=$(python3 "$UPDATE" "$V5B" --adopt --apply); rc=$?
+[ $rc -eq 0 ] && grep -qF 'See also `docs/sdlc/specs/002-cart.md`.' "$V5B/docs/sdlc/constitution.md" \
+    && [ "$(grep -c '^## Adopted from Spec Kit (constitution.md)$' "$V5B/docs/sdlc/constitution.md")" -eq 1 ] \
+    && pass "a later run updates the reference in an append-section destination" || fail "later-run append-section rewrite (rc=$rc)" "$out"
+V5D="$TMP/rv-later-own-line"; adopt_fixture speckit "$V5D"
+printf '\nSee also `specs/002-cart/spec.md`.\n' >> "$V5D/.specify/memory/constitution.md"; commit "$V5D"
+python3 "$UPDATE" "$V5D" --apply >/dev/null; commit "$V5D" "plain update"
+python3 "$UPDATE" "$V5D" --adopt --apply >/dev/null; commit "$V5D" adopted
+printf '\nC11. Every cart change updates `specs/002-cart/spec.md` by hand.\n' >> "$V5D/docs/sdlc/constitution.md"; commit "$V5D" "own principle"
+mkdir -p "$V5D/specs/002-cart"; printf '# Cart\n\nThe cart holds items.\n' > "$V5D/specs/002-cart/spec.md"; commit "$V5D" "second feature"
+own=$(grep -n '^C11\. ' "$V5D/docs/sdlc/constitution.md" | cut -d: -f1)
+out=$(python3 "$UPDATE" "$V5D" --adopt); rc=$?
+[ $rc -eq 4 ] && printf '%s' "$out" | grep -qE "no-dangling +FAIL: docs/sdlc/constitution.md:$own -> specs/" \
+    && ! printf '%s' "$out" | grep -qE "FAIL: .*constitution.md:[0-9]+ -> specs/.*constitution.md:[0-9]+ -> specs/" \
+    && printf '%s' "$out" | grep -q 'append-section; references to newly moved files updated' \
+    && pass "the project's own line naming a moved file stays as written and fails hard; the adopted one is rewritten, and the plan says so" \
+    || fail "own constitution line (rc=$rc, line $own)" "$out"
+V5C="$TMP/rv-later-always"; adopt_fixture kiro "$V5C"
+printf '\nSee also `.kiro/specs/cart/requirements.md`.\n' >> "$V5C/.kiro/steering/tech.md"; commit "$V5C"
+python3 "$UPDATE" "$V5C" --apply >/dev/null; commit "$V5C" "plain update"
+python3 "$UPDATE" "$V5C" --adopt --apply >/dev/null; commit "$V5C" adopted
+mkdir -p "$V5C/.kiro/specs/cart"; printf '# Cart\n\nThe cart holds items.\n' > "$V5C/.kiro/specs/cart/requirements.md"; commit "$V5C" "second feature"
+out=$(python3 "$UPDATE" "$V5C" --adopt --apply); rc=$?
+[ $rc -eq 0 ] && ! grep -qF '.kiro/specs/cart/requirements.md' "$V5C/.ai/policies/adopted/always.md" \
+    && grep -qF 'See also `' "$V5C/.ai/policies/adopted/always.md" \
+    && pass "a later run updates the reference in always.md" || fail "later-run always.md rewrite (rc=$rc)" "$out"
 # B6: coexist rows written per file before 2026-09-27 are superseded, not kept beside the new ones.
 V6="$TMP/rv-old-rows"; adopt_fixture speckit "$V6"
 python3 "$UPDATE" "$V6" --apply >/dev/null; commit "$V6" "plain update"

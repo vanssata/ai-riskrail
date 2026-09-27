@@ -369,13 +369,18 @@ def plan_file(plan, adoption, path, row, tool, roots):
         # reference to the old path, and would dangle after cleanup (I8).
         heading = "## Adopted from %s (%s)" % (TOOL_TITLE.get(tool, tool), os.path.basename(path))
         current = (plan.read(dest) or b"").decode("utf-8", "replace")
+        note_adopted(adoption, dest, text)
+        updated = rewrite_adopted(adoption, dest, current)
         if heading in current.split("\n"):
-            note_adopted(adoption, dest, text)
+            if updated != current:
+                plan.add("adopt", dest, note="[%s] append-section%s" % (tool, REFS_UPDATED),
+                         content=updated.encode("utf-8"), src=path, tool=tool)
             adoption.destinations.append((dest, tool, row.get("router"), False))
             return  # already appended by an earlier run
-        content = (current.rstrip("\n") + "\n\n" + heading + "\n\n" + text.strip("\n") + "\n").lstrip("\n").encode("utf-8")
+        content = (updated.rstrip("\n") + "\n\n" + heading + "\n\n" + text.strip("\n") + "\n").lstrip("\n").encode("utf-8")
         principles = sum(1 for line in text.split("\n") if line.startswith("### "))
-        note = "append-section" + (" (hint: %d principles, at most 15)" % principles if principles > 15 else "")
+        note = "append-section" + (" (hint: %d principles, at most 15)" % principles if principles > 15 else "") \
+            + (REFS_UPDATED if updated != current else "")
     else:  # copy
         dest = expand(row["dest"], path, roots)
         content, note = data, "copy"
@@ -468,9 +473,14 @@ def append_always(plan, adoption, path, text, tool, row):
     section = (("_%s_\n\n" % title) if title else "") + body
     note_adopted(adoption, ALWAYS_FILE, section)
     current = (plan.read(ALWAYS_FILE) or b"").decode("utf-8", "replace") or ALWAYS_HEAD
+    updated = rewrite_adopted(adoption, ALWAYS_FILE, current)
+    refs = REFS_UPDATED if updated != current else ""
     if heading not in current.split("\n"):
-        content = (current.rstrip("\n") + "\n\n" + heading + "\n\n" + section + "\n").encode("utf-8")
-        plan.add("adopt", ALWAYS_FILE, note="[%s] rule: always" % tool, content=content, src=path, tool=tool)
+        content = (updated.rstrip("\n") + "\n\n" + heading + "\n\n" + section + "\n").encode("utf-8")
+        plan.add("adopt", ALWAYS_FILE, note="[%s] rule: always%s" % (tool, refs), content=content, src=path, tool=tool)
+    elif refs:  # adopted by an earlier run; a file this run moves is named in it
+        plan.add("adopt", ALWAYS_FILE, note="[%s] rule: always%s" % (tool, refs),
+                 content=updated.encode("utf-8"), src=path, tool=tool)
     if adoption.instruction_targets:
         adoption.destinations.append((ALWAYS_FILE, tool, {"skip": True}, False))
         adoption.wants_pointer = True
@@ -554,6 +564,22 @@ def rewrite_refs(path, text, moves, adoption, transform):
             adoption.dropped.append({"source": path, "line": n, "text": line,
                                      "reason": "rewritten: path reference", "by": "transform:%s" % transform})
         out.append(new)
+    return "\n".join(out)
+
+
+REFS_UPDATED = "; references to newly moved files updated"
+
+
+def rewrite_adopted(adoption, dest, current):
+    """A3 for a destination several sources share (append-section, ALWAYS_FILE):
+    a line an earlier run adopted names a file this run moves. Only a line whose
+    rewrite is a line this run adopts into `dest` changes; the project's own
+    lines stay as written, and check_refs names them (M-new-1)."""
+    foreign = adoption.adopted_lines.get(dest, ())
+    out = []
+    for line in current.split("\n"):
+        new = rewrite_refs(None, line, adoption.moves, None, None)
+        out.append(new if new != line and adopted_key(new) in foreign else line)
     return "\n".join(out)
 
 
