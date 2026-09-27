@@ -54,7 +54,7 @@ class Prices:
     """One provider's price table, loaded from prices.json."""
 
     def __init__(self, spec: dict):
-        # Longest key first, so "gpt-5.6-sol" is tried before "gpt-5.6".
+        # Longest key first, so "gpt-5.4-mini" is tried before "gpt-5.4".
         self.rates = dict(spec["families"])
         self.families = sorted(self.rates, key=len, reverse=True)
         self.default = spec["default_family"]
