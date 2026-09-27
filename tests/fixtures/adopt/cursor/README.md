@@ -9,7 +9,9 @@ Layout assumed:
 - `.cursor/mcp.json` → `ignore`.
 
 The fixture covers always (general.mdc), glob-scoped with a literal leading directory
-(frontend/react.mdc → `.ai/rules/`), and description-only (testing.mdc → `.ai/policies/adopted/`).
+(frontend/react.mdc → `.ai/rules/`), description-only (testing.mdc → `.ai/policies/adopted/`), and glob-only with no literal directory
+(typescript.mdc, `globs: *.ts,*.tsx` → `.ai/policies/adopted/` with `paths:`). Since spec amendment
+A4 (2026-09-27) the always rule goes into the root instruction files.
 
 Corrections to spec I2: none. Noted, out of scope: Cursor now also reads `AGENTS.md` (root and
 nested); a root one is the codex instruction file, nested ones are not detected.

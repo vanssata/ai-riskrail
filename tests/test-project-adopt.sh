@@ -87,8 +87,8 @@ printf '%s' "$out" | grep -q '.cursor/rules/frontend/react.mdc -> .ai/rules/fron
     && pass "a glob-scoped Cursor rule becomes a .ai/rules/ rule with dirs" || fail "react.mdc not a scoped rule" "$out"
 printf '%s' "$out" | grep -q '^  ignored   .cursor/mcp.json' && pass "Cursor configuration is ignored, not adopted" || fail "mcp.json not ignored" "$out"
 out=$(python3 "$UPDATE" "$P/kiro" --adopt)
-printf '%s' "$out" | grep -q '.kiro/steering/tech.md -> .ai/policies/adopted/kiro-tech.md .*always' \
-    && pass "a Kiro steering file without frontmatter is always included" || fail "tech.md not always" "$out"
+printf '%s' "$out" | grep -qE '^  adopt     .kiro/steering/tech.md -> .ai/policies/adopted/always.md .*rule: always' \
+    && pass "a Kiro steering file without frontmatter is always included (A4)" || fail "tech.md not always" "$out"
 printf '%s' "$out" | grep -q '^  ignored   .kiro/steering/aws-aidlc-rules/' \
     && pass "AI-DLC installed for Kiro stays out of the steering row" || fail "aws-aidlc-rules not ignored" "$out"
 
@@ -186,7 +186,9 @@ python3 "$UPDATE" "$P/cursor" --mode coexist >/dev/null 2>&1; [ $? -eq 2 ] && pa
 echo "== I9 router rows: appended once, idempotent by exact text"
 R="$TMP/router"; adopt_fixture cursor "$R"
 out=$(python3 "$UPDATE" "$R" --adopt)
-printf '%s' "$out" | grep -qE '^  router    .ai/AGENTS.md +\+2 row\(s\)$' && pass "the dry run plans +2 router rows" || fail "no router plan item" "$out"
+# A5: cursorrules (policies/adopted/), the path-scoped rule (rules/), and one row per on-demand
+# rule under policies/adopted/ (testing.mdc, typescript.mdc); the always rule has no row (A4).
+printf '%s' "$out" | grep -qE '^  router    .ai/AGENTS.md +\+4 row\(s\)$' && pass "the dry run plans +4 router rows" || fail "no router plan item" "$out"
 router_content=$(cd "$PLUGIN_ROOT/skills/project-update" && python3 - "$R" <<'ROUTEREOF'
 import sys, os
 sys.dont_write_bytecode = True
@@ -241,6 +243,217 @@ LOSTEOF
 echo "$out" | sed -n 1p | grep -q '^fail$' && pass "a genuinely lost line fails the check" || fail "check_lines did not fail" "$out"
 echo "$out" | sed -n 2p | grep -qE '^[1-9]' && pass "and counts how many" || fail "no missing count" "$out"
 echo "$out" | sed -n 3p | grep -q '^.cursorrules:' && pass "and names file:line" || fail "no file:line" "$out"
+
+echo "== A1, A2: the current Spec Kit machinery is mapped, and a glob decision settles a whole directory"
+A1="$TMP/a1"; adopt_fixture speckit "$A1"
+out=$(python3 "$UPDATE" "$A1" --adopt)
+printf '%s' "$out" | grep -q 'unmapped' && fail "the current Spec Kit layout left files unmapped" "$out" || pass "nothing unmapped in the current Spec Kit layout"
+for f in extensions.yml init-options.json integrations/claude.manifest.json presets/x/preset.md workflows/x.md; do
+    printf '%s' "$out" | grep -qE "^  dropped   .specify/$f .*Spec Kit tool machinery" \
+        && pass ".specify/$f is dropped as tool machinery" || fail ".specify/$f not dropped as machinery" "$out"
+done
+printf '%s' "$out" | grep -qE '^  dropped   .specify/integrations/speckit.manifest.json .*Spec Kit tool machinery' \
+    && pass "speckit.manifest.json is machinery, not an agent command by a filename coincidence" || fail "speckit.manifest.json reason" "$out"
+printf '%s' "$out" | grep -qE '^  adopt     specs/001-user-auth/checklists/requirements.md -> docs/sdlc/specs/001-user-auth-checklists-requirements.md' \
+    && pass "a /speckit.checklist file is copied under docs/sdlc/specs/" || fail "checklist not copied" "$out"
+mkdir -p "$A1/specs/001-user-auth/contracts" "$A1/specs/002-cart/contracts"
+printf 'openapi: 3.1.0\n' > "$A1/specs/001-user-auth/contracts/api.yaml"
+printf 'openapi: 3.1.0\n' > "$A1/specs/002-cart/contracts/api.yaml"; commit "$A1"
+mkdir -p "$A1/.ai/reports/adopt-2000-01-01"
+printf '{"version":1,"unmapped":{"specs/*/contracts/**":{"action":"drop","why":"contracts live in the API repo"}}}\n' \
+    > "$A1/.ai/reports/adopt-2000-01-01/decisions.json"
+out=$(python3 "$UPDATE" "$A1" --adopt)
+[ "$(printf '%s' "$out" | grep -c '^  dropped   specs/00[12]-[a-z-]*/contracts/api.yaml .*API repo')" -eq 2 ] && ! printf '%s' "$out" | grep -q unmapped \
+    && pass "one glob key settles both contracts files" || fail "glob decision not applied" "$out"
+printf '{"version":1,"unmapped":{"specs/*/contracts/**":{"action":"drop","why":"glob"},"specs/002-cart/contracts/api.yaml":{"action":"ignore","why":"exact"}}}\n' \
+    > "$A1/.ai/reports/adopt-2000-01-01/decisions.json"
+out=$(python3 "$UPDATE" "$A1" --adopt)
+printf '%s' "$out" | grep -qE '^  ignored   specs/002-cart/contracts/api.yaml .*exact' \
+    && printf '%s' "$out" | grep -qE '^  dropped   specs/001-user-auth/contracts/api.yaml .*glob' \
+    && pass "an exact key wins over a glob" || fail "exact vs glob" "$out"
+printf '{"version":1,"unmapped":{"specs/*/contracts/**":{"action":"copy","dest":"docs/sdlc/specs/contracts.md"}}}\n' \
+    > "$A1/.ai/reports/adopt-2000-01-01/decisions.json"
+out=$(python3 "$UPDATE" "$A1" --adopt); rc=$?
+[ $rc -eq 4 ] && printf '%s' "$out" | grep -qE '^  unmapped  specs/001-user-auth/contracts/api.yaml .*a glob decision cannot copy' \
+    && pass "a glob copy is refused: one destination cannot take many files" || fail "glob copy accepted (rc=$rc)" "$out"
+
+echo "== A3: references inside migrated text are rewritten, or named as warnings"
+A3="$TMP/a3"; adopt_fixture speckit "$A3"
+python3 "$UPDATE" "$A3" --apply >/dev/null; commit "$A3" "plain update"
+out=$(python3 "$UPDATE" "$A3" --adopt); rc=$?
+[ $rc -eq 0 ] && printf '%s' "$out" | grep -qE '^  check +no-dangling +PASS' \
+    && pass "a real-shaped Spec Kit tree passes no-dangling" || fail "speckit no-dangling (rc=$rc)" "$out"
+printf '%s' "$out" | grep -qE 'no-dangling +PASS .*docs/sdlc/plans/001-user-auth-tasks.md:[0-9]+ -> specs/' \
+    && pass "the directory reference in tasks.md is a named warning" || fail "tasks.md directory reference not named" "$out"
+printf '%s' "$out" | grep -qE 'no-dangling +PASS .*docs/sdlc/constitution.md:[0-9]+ -> .specify/' \
+    && pass "the Sync Impact Report's .specify/templates/ is a named warning" || fail "constitution comment not named" "$out"
+out=$(python3 "$UPDATE" "$A3" --adopt --apply); rc=$?
+[ $rc -eq 0 ] && grep -qF 'Feature specification from `docs/sdlc/specs/001-user-auth.md`' "$A3/docs/sdlc/plans/001-user-auth.md" \
+    && pass "plan.md's spec path is rewritten to its new home" || fail "path not rewritten (rc=$rc)" "$out$(cat "$A3/docs/sdlc/plans/001-user-auth.md")"
+grep -q '"reason": "rewritten: path reference"' "$A3"/.ai/reports/adopt-*/dropped.jsonl \
+    && pass "the rewrite is logged in dropped.jsonl" || fail "no rewrite record"
+printf '%s' "$out" | grep -qE '^  check +no-line-lost +PASS' && pass "no-line-lost still holds after the rewrite" || fail "no-line-lost after rewrite" "$out"
+commit "$A3" adopted
+out=$(python3 "$UPDATE" "$A3" --adopt)
+printf '%s' "$out" | grep -q '^0 automatic, 0 conflict' && pass "a second --adopt after the rewrite plans nothing (R15)" || fail "rewrite not idempotent" "$out"
+[ "$(printf '%s' "$out" | grep -oE 'docs/sdlc/constitution.md:[0-9]+ -> .specify/' | wc -l)" -eq 2 ] \
+    && pass "both Sync Impact Report lines are named, not only the first in the file" || fail "one warning per file" "$out"
+printf 'Our own note: the old spec is `specs/001-user-auth/spec.md`.\n' >> "$A3/docs/sdlc/plans/001-user-auth-tasks.md"; commit "$A3" "own note"
+out=$(python3 "$UPDATE" "$A3" --adopt); rc=$?
+[ $rc -eq 4 ] && printf '%s' "$out" | grep -qE 'no-dangling +FAIL: docs/sdlc/plans/001-user-auth-tasks.md:[0-9]+ -> specs/' \
+    && pass "a warned adopted line first in a file does not hide the project's own stale line below it" || fail "own line masked (rc=$rc)" "$out"
+H3="$TMP/a3-own"; adopt_fixture speckit "$H3"
+printf '\nOur own note: see `specs/001-user-auth/spec.md`.\n' >> "$H3/.ai/policies/coding.md"; commit "$H3"
+out=$(python3 "$UPDATE" "$H3" --adopt); rc=$?
+[ $rc -eq 4 ] && printf '%s' "$out" | grep -qE 'no-dangling +FAIL: .ai/policies/coding.md:[0-9]+ -> specs/' \
+    && pass "the project's own stale reference still fails hard" || fail "own reference softened (rc=$rc)" "$out"
+
+echo "== A4: an always rule goes into always.md, and every instruction file points at it"
+A4="$TMP/a4"; adopt_fixture cursor "$A4"
+bash "$PLUGIN_ROOT/hooks/project-scaffold.sh" "$A4" --runtime codex >/dev/null
+bash "$PLUGIN_ROOT/skills/ai-init/scaffold-ai.sh" "$A4" --runtime claude,codex >/dev/null
+python3 "$UPDATE" "$A4" --apply >/dev/null; commit "$A4" "two runtimes"
+out=$(python3 "$UPDATE" "$A4" --adopt --apply); rc=$?
+AL="$A4/.ai/policies/adopted/always.md"
+grep -q '^## Adopted from Cursor (general.mdc)$' "$AL" && grep -q 'Use pnpm, never npm or yarn.' "$AL" \
+    && pass "the alwaysApply rule is in always.md" || fail "always rule not in always.md (rc=$rc)" "$out"
+for f in CLAUDE.md AGENTS.md; do
+    grep -qxF 'Read `.ai/policies/adopted/always.md` first.' "$A4/$f" \
+        && ! grep -q 'Use pnpm, never npm or yarn.' "$A4/$f" \
+        && pass "$f points at it, and carries none of its text" || fail "no pointer in $f (rc=$rc)" "$out"
+done
+printf '%s' "$out" | grep -q 'split?' && fail "the pointer took an instruction file over its budget" "$out" || pass "no instruction file goes over its budget"
+[ ! -e "$A4/.ai/policies/adopted/cursor-general.md" ] && pass "and no cursor-general.md of its own" || fail "always rule also written as a policy"
+printf '%s' "$out" | grep -qE '^  check +no-line-lost +PASS' && pass "no-line-lost holds" || fail "no-line-lost with an always rule" "$out"
+commit "$A4" adopted
+out=$(python3 "$UPDATE" "$A4" --adopt)
+printf '%s' "$out" | grep -q '^0 automatic' && [ "$(grep -c '^## Adopted from Cursor (general.mdc)$' "$AL")" -eq 1 ] \
+    && [ "$(grep -cxF 'Read `.ai/policies/adopted/always.md` first.' "$A4/CLAUDE.md")" -eq 1 ] \
+    && pass "a second run appends nothing" || fail "always rule appended twice" "$out"
+B4="$TMP/a4-budget"; adopt_fixture cursor "$B4"
+{ printf -- '---\ndescription: Everything\nalwaysApply: true\n---\n\n'; for i in $(seq 1 400); do printf -- '- Convention number %d applies to every change in this repository.\n' "$i"; done; } \
+    > "$B4/.cursor/rules/big.mdc"; commit "$B4"
+out=$(python3 "$UPDATE" "$B4" --adopt --apply); rc=$?
+[ $rc -eq 0 ] && ! printf '%s' "$out" | grep -q 'split?' && grep -q 'Convention number 400 ' "$B4/.ai/policies/adopted/always.md" \
+    && pass "a 25 KB always rule does not touch the instruction file's budget" || fail "large always rule (rc=$rc)" "$out"
+
+echo "== A5: router rows carry a trigger; coexist has one row per directory"
+A5="$TMP/a5"; adopt_fixture cursor "$A5"
+rows=$(cd "$PLUGIN_ROOT/skills/project-update" && python3 - "$A5" <<'A5EOF'
+import sys
+sys.dont_write_bytecode = True
+import update, adopt
+plan = update.Plan(sys.argv[1])
+caps = update.render_instructions.budgets(update.render_instructions.DEFAULT_SOURCE)
+files = frozenset(update.INSTRUCTION_FILE[rt][0] for rt in update.INSTRUCTION_FILE)
+adopt.plan_adopt(plan, adopt.load_table(), "migrate", None, update.shipped_block, caps["skeleton"], files, update.shipped_ai_files())
+print(next(i for i in plan.items if i["action"] == "router")["content"].decode("utf-8"))
+A5EOF
+)
+printf '%s' "$rows" | grep -qF '| How to write and run tests; apply when adding or changing tests | policies/adopted/cursor-testing.md |' \
+    && pass "an on-demand rule's row is triggered by its description and names its file" || fail "no description row" "$rows"
+printf '%s' "$rows" | grep -qF '| TypeScript conventions | policies/adopted/cursor-typescript.md |' \
+    && pass "the glob-only rule gets its own row too" || fail "no typescript row" "$rows"
+C5="$TMP/a5-coexist"; adopt_fixture speckit "$C5"
+out=$(python3 "$UPDATE" "$C5" --adopt --mode coexist)
+n=$(printf '%s' "$out" | grep -oE '^  router +.ai/AGENTS.md +\+[0-9]+' | grep -oE '[0-9]+$')
+dirs=$(cd "$C5" && git ls-files .specify specs .claude .github .gemini | xargs -n1 dirname | sort -u | wc -l)
+[ -n "$n" ] && [ "$n" -le "$dirs" ] && pass "coexist adds $n row(s) for $dirs directories, not one per file" || fail "coexist rows (n=$n dirs=$dirs)" "$out"
+rows=$(cd "$PLUGIN_ROOT/skills/project-update" && python3 - "$C5" <<'C5EOF'
+import sys
+sys.dont_write_bytecode = True
+import update, adopt
+plan = update.Plan(sys.argv[1])
+caps = update.render_instructions.budgets(update.render_instructions.DEFAULT_SOURCE)
+files = frozenset(update.INSTRUCTION_FILE[rt][0] for rt in update.INSTRUCTION_FILE)
+adopt.plan_adopt(plan, adopt.load_table(), "coexist", None, update.shipped_block, caps["skeleton"], files, update.shipped_ai_files())
+print(next(i for i in plan.items if i["action"] == "router")["content"].decode("utf-8"))
+C5EOF
+)
+printf '%s' "$rows" | grep -F 'specs/001-user-auth/' | grep -q 'globs' && fail "a spec row carries the globs suffix" "$rows" || pass "no globs suffix on a spec row"
+C6="$TMP/a5-coexist-cursor"; adopt_fixture cursor "$C6"
+rows=$(python3 "$UPDATE" "$C6" --adopt --mode coexist --diff)
+printf '%s' "$rows" | grep -E '^\+\|.*\.cursor/rules/' | grep -q 'its globs are not applied' \
+    && pass "the Cursor rules row keeps the globs suffix" || fail "cursor coexist suffix" "$rows"
+
+echo "== STRONG review of package B: what a later pass over the same files must keep"
+# B1: a reference to an always rule goes where the rule really went.
+V1="$TMP/rv-always-ref"; adopt_fixture cursor "$V1"
+printf 'See `.cursor/rules/general.mdc` for the conventions.\n' >> "$V1/.cursorrules"; commit "$V1"
+out=$(python3 "$UPDATE" "$V1" --adopt --apply); rc=$?
+[ $rc -eq 0 ] && grep -qF 'See `.ai/policies/adopted/always.md` for the conventions.' "$V1/.ai/policies/adopted/cursorrules.md" \
+    && pass "a reference to an always rule is rewritten to always.md, a file that exists" || fail "always-rule reference (rc=$rc)" "$out$(grep -F conventions "$V1/.ai/policies/adopted/cursorrules.md")"
+grep -qx '_Project-wide conventions_' "$V1/.ai/policies/adopted/always.md" \
+    && pass "the always rule's description is kept above its text" || fail "always description dropped"
+# B2: the pointer survives a split and is paid for out of the budget.
+V2="$TMP/rv-pointer-split"; adopt_fixture cursor "$V2"
+head -c 120 /dev/zero | tr '\0' 'n' >> "$V2/CLAUDE.md"; printf '\n' >> "$V2/CLAUDE.md"; commit "$V2"
+out=$(python3 "$UPDATE" "$V2" --adopt); rc=$?
+[ $rc -eq 4 ] && printf '%s' "$out" | grep -q '^  split?    CLAUDE.md' \
+    && pass "a file the pointer would take over the budget is a split? candidate" || fail "pointer not counted (rc=$rc)" "$out"
+out=$(python3 "$UPDATE" "$V2" --adopt --apply --split fallback); rc=$?
+[ $rc -eq 0 ] && grep -qxF 'Read `.ai/policies/adopted/always.md` first.' "$V2/CLAUDE.md" \
+    && ! grep -qF 'always.md' "$V2/.ai/policies/adopted/claude-md.md" \
+    && pass "--split fallback keeps the pointer in CLAUDE.md and moves only the project's lines" || fail "pointer evicted by the split (rc=$rc)" "$out"
+commit "$V2" adopted
+out=$(python3 "$UPDATE" "$V2" --adopt)
+printf '%s' "$out" | grep -q '^0 automatic' && pass "and the next --adopt plans nothing (R15)" || fail "pointer re-planned after a split" "$out"
+head -c 1000 /dev/zero | tr '\0' 'm' >> "$V2/CLAUDE.md"; printf '\n' >> "$V2/CLAUDE.md"; commit "$V2" "the file grows again"
+out=$(python3 "$UPDATE" "$V2" --adopt --apply --split fallback); rc=$?
+[ $rc -eq 0 ] && printf '%s' "$out" | grep -q 'CLAUDE.md -> CLAUDE.md .*split (fallback)' \
+    && grep -qxF 'Read `.ai/policies/adopted/always.md` first.' "$V2/CLAUDE.md" \
+    && ! grep -qF 'always.md' "$V2"/.ai/policies/adopted/claude-md*.md \
+    && pass "a later split of a file already carrying the pointer keeps it, and copies it nowhere" || fail "pointer moved by a later split (rc=$rc)" "$out"
+# B3: two always rules with one basename.
+V3="$TMP/rv-same-name"; adopt_fixture cursor "$V3"; mkdir -p "$V3/.cursor/rules/a" "$V3/.cursor/rules/b"
+printf -- '---\nalwaysApply: true\n---\n\n- Rule from a.\n' > "$V3/.cursor/rules/a/index.mdc"
+printf -- '---\nalwaysApply: true\n---\n\n- Rule from b.\n' > "$V3/.cursor/rules/b/index.mdc"; commit "$V3"
+out=$(python3 "$UPDATE" "$V3" --adopt --apply); rc=$?
+AL3="$V3/.ai/policies/adopted/always.md"
+[ $rc -eq 0 ] && grep -qx '## Adopted from Cursor (a/index.mdc)' "$AL3" && grep -qx '## Adopted from Cursor (b/index.mdc)' "$AL3" \
+    && grep -q 'Rule from a.' "$AL3" && grep -q 'Rule from b.' "$AL3" \
+    && pass "two always rules named index.mdc keep a heading and a body each" || fail "same-basename always rules (rc=$rc)" "$out"
+# B4: a foreign heading that names a path is the tool's wording too.
+V4="$TMP/rv-heading"; adopt_fixture speckit "$V4"
+printf '\n## Layout under `specs/001-user-auth/`\n' >> "$V4/specs/001-user-auth/plan.md"; commit "$V4"
+out=$(python3 "$UPDATE" "$V4" --adopt); rc=$?
+[ $rc -eq 0 ] && printf '%s' "$out" | grep -qE 'no-dangling +PASS .*docs/sdlc/plans/001-user-auth.md:[0-9]+ -> specs/' \
+    && pass "a foreign heading with a directory path is a named warning" || fail "foreign heading failed hard (rc=$rc)" "$out"
+# B5: a later run moves a file an earlier-adopted document already named.
+V5="$TMP/rv-later"; adopt_fixture speckit "$V5"
+printf '\nSee also `specs/002-cart/spec.md`.\n' >> "$V5/specs/001-user-auth/research.md"; commit "$V5"
+python3 "$UPDATE" "$V5" --apply >/dev/null; commit "$V5" "plain update"
+python3 "$UPDATE" "$V5" --adopt --apply >/dev/null; commit "$V5" adopted
+mkdir -p "$V5/specs/002-cart"; printf '# Cart\n\nThe cart holds items.\n' > "$V5/specs/002-cart/spec.md"; commit "$V5" "second feature"
+out=$(python3 "$UPDATE" "$V5" --adopt --apply); rc=$?
+[ $rc -eq 0 ] && ! printf '%s' "$out" | grep -q '^  conflict' \
+    && grep -qF 'See also `docs/sdlc/specs/002-cart.md`.' "$V5/docs/sdlc/specs/001-user-auth-research.md" \
+    && pass "a later run updates the reference in an untouched destination instead of a conflict" || fail "later-run rewrite (rc=$rc)" "$out"
+# B6: coexist rows written per file before 2026-09-27 are superseded, not kept beside the new ones.
+V6="$TMP/rv-old-rows"; adopt_fixture speckit "$V6"
+python3 "$UPDATE" "$V6" --apply >/dev/null; commit "$V6" "plain update"
+python3 - "$V6/.ai/AGENTS.md" <<'OLDROWS'
+import sys
+p = sys.argv[1]
+lines = open(p).read().split("\n")
+last = max(i for i, l in enumerate(lines) if l.startswith("|"))
+old = ["| an adopted Spec Kit spec | specs/001-user-auth/spec.md (kept in place; its globs are not applied by this runtime) |",
+       "| an adopted Spec Kit file | specs/001-user-auth/tasks.md (kept in place; its globs are not applied by this runtime) |"]
+open(p, "w").write("\n".join(lines[:last + 1] + old + lines[last + 1:]))
+OLDROWS
+commit "$V6" "old coexist rows"
+out=$(python3 "$UPDATE" "$V6" --adopt --mode coexist --apply); rc=$?
+[ $rc -eq 0 ] && ! grep -q 'specs/001-user-auth/spec.md (kept in place' "$V6/.ai/AGENTS.md" \
+    && grep -q '| specs/001-user-auth/ (kept in place' "$V6/.ai/AGENTS.md" \
+    && printf '%s' "$out" | grep -qE '^  router .*-2 superseded' \
+    && pass "the old per-file coexist rows give way to the directory row" || fail "old coexist rows kept (rc=$rc)" "$out"
+# L2: a source that is not UTF-8 is copied byte for byte, never re-encoded.
+V7="$TMP/rv-latin1"; adopt_fixture speckit "$V7"
+printf 'caf\351 see `specs/001-user-auth/spec.md`\n' > "$V7/specs/001-user-auth/research.md"; commit "$V7"
+python3 "$UPDATE" "$V7" --apply >/dev/null; commit "$V7" "plain update"
+out=$(python3 "$UPDATE" "$V7" --adopt --apply); rc=$?
+cmp -s "$V7/specs/001-user-auth/research.md" "$V7/docs/sdlc/specs/001-user-auth-research.md" \
+    && pass "a non-UTF-8 source is copied unchanged, not rewritten lossily" || fail "latin-1 source re-encoded (rc=$rc)" "$out"
 
 echo "== R11: a hard-scope stale reference fails no-dangling, the same in warn scope only warns"
 D="$TMP/dangling"; adopt_fixture cursor "$D"

@@ -172,6 +172,10 @@ and stop — never edit a destination or a source to make it pass.
    with a reason, or copy it to a named destination) and, after a yes, write
    their answers into `.ai/reports/adopt-<date>/decisions.json`:
    `{"version": 1, "unmapped": {"<path>": {"action": "drop", "why": "…"}}}`.
+   When the human settles a whole directory the same way, one glob key does it
+   (`"specs/*/contracts/**": {"action": "drop", "why": "…"}`): an exact path
+   wins over a glob, the longest glob wins over a shorter one, and a glob takes
+   only `drop` or `ignore` — a `copy` names one destination, so it names one file.
 4. For a `split?` line (an instruction file too large to keep as it is):
    - On a `pro` or `plus` plan (`state.py profile --field plan`), when that
      command fails, or under `AI_UNATTENDED`, use `--split fallback`: every line
@@ -187,7 +191,12 @@ and stop — never edit a destination or a source to make it pass.
      never requested again.
 5. Run `$UPDATE --adopt --diff`, show it, and ask "apply?".
 6. Run `$UPDATE --adopt --apply` (with `--split fallback` if step 4 chose it)
-   and show the two `check` lines. On a FAIL, read `dropped.jsonl`, amend the
+   and show the two `check` lines. A reference in migrated text to a file the
+   run moves is rewritten to its new path (`dropped.jsonl` logs it); one it
+   cannot place (a directory, a dropped template) is a named `no-dangling`
+   warning — read them out, they are the human's to judge. A rule its tool
+   applied to every request lands in `.ai/policies/adopted/always.md`, and each
+   root instruction file gets one line pointing at it. On a FAIL, read `dropped.jsonl`, amend the
    proposal or the decisions, and run it again. Never edit a destination by
    hand to make a check pass.
 7. Point at `.ai/reports/adopt-<date>/report.md`. Suggest `git add` of the new
