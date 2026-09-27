@@ -1,0 +1,26 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"scm.defaultViewMode": "tree",
+		"scm.defaultViewSortKey": "path",
+		"scm.diffDecorations": "all",
+		"scm.showHistoryGraph": true,
+
+		"git.blame.editorDecoration.enabled": true,
+		"git.blame.statusBarItem.enabled": true,
+		"git.mergeEditor": true,
+		"git.autofetch": true,
+		"git.confirmSync": false,
+		"git.openDiffOnClick": true,
+
+		"diffEditor.renderSideBySide": true,
+		"diffEditor.ignoreTrimWhitespace": false,
+
+		"workbench.localHistory.enabled": true,
+		"workbench.editor.enablePreview": false
+	}
+}
