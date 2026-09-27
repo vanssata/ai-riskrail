@@ -336,6 +336,14 @@ B4="$TMP/a4-budget"; adopt_fixture cursor "$B4"
 out=$(python3 "$UPDATE" "$B4" --adopt --apply); rc=$?
 [ $rc -eq 0 ] && ! printf '%s' "$out" | grep -q 'split?' && grep -q 'Convention number 400 ' "$B4/.ai/policies/adopted/always.md" \
     && pass "a 25 KB always rule does not touch the instruction file's budget" || fail "large always rule (rc=$rc)" "$out"
+# M-new-2: --tool names cursor only, yet CLAUDE.md gets the pointer, so its budget is checked too.
+B5="$TMP/a4-budget-tool"; adopt_fixture cursor "$B5"
+python3 "$UPDATE" "$B5" --apply >/dev/null
+size=$(wc -c < "$B5/CLAUDE.md"); { printf '\n'; head -c $((2048 - 20 - size - 1)) /dev/zero | tr '\0' 'x'; } >> "$B5/CLAUDE.md"
+commit "$B5" "CLAUDE.md 20 B under the skeleton budget"
+out=$(python3 "$UPDATE" "$B5" --adopt --tool cursor); rc=$?
+[ $rc -eq 4 ] && printf '%s' "$out" | grep -qE 'split\?.*CLAUDE.md|CLAUDE.md.*split\?' \
+    && pass "--tool cursor: the pointer that takes CLAUDE.md over its budget makes it a split?" || fail "pointer unchecked under --tool (rc=$rc, $(wc -c < "$B5/CLAUDE.md") B)" "$out"
 
 echo "== A5: router rows carry a trigger; coexist has one row per directory"
 A5="$TMP/a5"; adopt_fixture cursor "$A5"

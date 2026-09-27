@@ -694,7 +694,11 @@ def plan_adopt(plan, table, mode="migrate", tools=None, shipped_block=None, skel
             tool, head = nested
             adoption.unmapped.append((path, tool))
             adoption.note("unmapped", path, "[%s] below the root (%s/) — only the root is adopted" % (tool, head))
-    for tool, sig in instruction.items():
+    # A4: a file outside --tool still gets the pointer, so its budget is checked too (M-new-2).
+    pointed = [(t, s) for t in table["tools"] if t not in instruction and not table["tools"][t]["roots"]
+               for s in table["tools"][t]["signature"]
+               if pointer_bytes(adoption, s, (plan.read(s) or b"").decode("utf-8", "replace"))]
+    for tool, sig in list(instruction.items()) + pointed:
         text = (plan.read(sig) or b"").decode("utf-8", "replace")
         block = render_instructions.block_of(text)
         row = next(r for r in rows_of[tool])
