@@ -239,6 +239,8 @@ h2{font:700 clamp(34px,4.6vw,64px)/1.1 var(--font);letter-spacing:-.025em;margin
 .feat{display:grid;grid-template-columns:220px 1fr;gap:24px;padding:24px 0;border-top:var(--stroke) solid var(--abr-black)}
 .feat h3{margin:0;font:700 20px/1.25 var(--font)}
 .feat p{margin:0;color:var(--m600);font-size:17px}
+.risks .feat h3 a{color:inherit;text-decoration:none}.risks .feat h3 a:hover{text-decoration:underline}
+.risks .new{display:inline-block;margin-left:6px;padding:0 6px;font-size:12px;border:var(--stroke) solid currentColor;border-radius:4px;white-space:nowrap}
 
 /* WHY: the four strengths */
 .why{padding:clamp(90px,12vw,160px) 0}
@@ -357,7 +359,7 @@ footer a{text-decoration:none;color:var(--abr-white);border-bottom:2px solid tra
     claude-agentic
   </a>
   <nav aria-label="Sections">
-    <a href="#why">Why</a><a href="#routing">Routing</a><a href="#proof">Measured</a><a href="#fleet">A month</a><a href="#router">Risk tiers</a><a href="#guards">Guards</a><a href="#install">Install</a><a href="demo.html">Demo</a><a href="benchmark.html">Benchmark</a>
+    <a href="#why">Why</a><a href="#routing">Routing</a><a href="#proof">Measured</a><a href="#fleet">A month</a><a href="#router">Risk tiers</a><a href="#guards">Guards</a><a href="#risks">Risks</a><a href="#install">Install</a><a href="demo.html">Demo</a><a href="benchmark.html">Benchmark</a>
   </nav>
   <a class="btn secondary" href="https://github.com/vanssata/claude-agentic-sdlc-module">GitHub ↗</a>
 </header>
@@ -371,10 +373,10 @@ footer a{text-decoration:none;color:var(--abr-white);border-bottom:2px solid tra
     <div class="chip frame" style="right:9%;top:22%"><svg class="ico cl" aria-hidden="true"><use href="#i-claude"/></svg>FAST <b>haiku · low</b></div>
     <div class="chip frame hide-s" style="right:24%;top:40%"><svg class="ico cl" aria-hidden="true"><use href="#i-claude"/></svg>BALANCED <b>sonnet</b></div>
     <div class="chip dark hide-s" style="right:6%;top:58%"><svg class="ico" aria-hidden="true"><use href="#i-openai"/></svg>STRONG <b>opus · high</b></div>
-    <div class="chip yl hide-s" style="right:30%;top:74%">tests <b>2,129 assertions passing</b></div>
+    <div class="chip yl hide-s" style="right:30%;top:74%">tests <b>2,179 assertions passing</b></div>
   </div>
   <div class="wrap hero-copy">
-    <p class="kicker"><svg class="ico cl" aria-hidden="true"><use href="#i-claude"/></svg><svg class="ico" aria-hidden="true"><use href="#i-openai"/></svg>v2.0.1 · Claude Code + Codex</p>
+    <p class="kicker"><svg class="ico cl" aria-hidden="true"><use href="#i-claude"/></svg><svg class="ico" aria-hidden="true"><use href="#i-openai"/></svg>v2.0.2 · Claude Code + Codex</p>
     <h1 id="h1"><span class="line"><span>Pay for</span></span><span class="line"><span><em>thinking,</em></span></span><span class="line"><span>not re-reading.</span></span></h1>
     <p class="lede">claude-agentic routes every job to the cheapest model that can do it well, classifies every change by risk before it is planned, and <strong>puts hooks in front of the commands that break production</strong>. Built for codebases with legacy code and customers who depend on them today.</p>
     <div class="cta-row">
@@ -615,7 +617,30 @@ footer a{text-decoration:none;color:var(--abr-white);border-bottom:2px solid tra
       <div class="feat" data-rv><h3>Sensors before reviewers</h3><p><code>review-gate</code> runs your linter, type checker, the diff budget, a re-score and whether the named tests fail without the change. At T2, all green means the sensors are the review.</p></div>
       <div class="feat" data-rv><h3>/project-update keeps your edits</h3><p>Every template version ever shipped is in the plugin, so an update replaces untouched files, three-way merges edited ones and never overwrites a real conflict. <code>--adopt</code> moves Spec Kit, Kiro, Cursor or Copilot setups in, with no line lost.</p></div>
       <div class="feat" data-rv><h3>/usage-report at zero cost</h3><p>Tokens and cost per session, day, project, model and task, from local transcripts, for both runtimes. The numbers above came from it.</p></div>
-      <div class="feat" data-rv><h3>Tested like infrastructure</h3><p>25 suites and 2,129 assertions, including an end-to-end run that drives a T4 task from Claude and then from Codex over one state. No suite touches your real home directory.</p></div>
+      <div class="feat" data-rv><h3>Tested like infrastructure</h3><p>25 suites and 2,179 assertions, including an end-to-end run that drives a T4 task from Claude and then from Codex over one state. No suite touches your real home directory.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- KNOWN RISKS -->
+<section class="more risks" id="risks" aria-labelledby="k-h">
+  <div class="wrap">
+    <div>
+      <h2 id="k-h" data-rv>What 2.0.2 does <em>not</em> protect against.</h2>
+      <p class="sub" data-rv>Eleven known gaps, each accepted or deferred with a written reason. None is a secret. The README gives the why, the limits and the source for every one.</p>
+    </div>
+    <div>
+      <div class="feat" data-rv><h3><a href="https://github.com/vanssata/claude-agentic-sdlc-module#the-guards-are-a-tripwire-not-a-sandbox">A tripwire, not a sandbox</a></h3><p>Every guard rule is a regex over a command line or a path. It stops the honest mistake; a process that wants past it can get past it. Keep secrets off the machine and protect branches server-side.</p></div>
+      <div class="feat" data-rv><h3><a href="https://github.com/vanssata/claude-agentic-sdlc-module#human-approval-can-be-forged-by-a-determined-process">Approval can be forged</a></h3><p>An obfuscated call that slips the regex and allocates a pty can still run <code>state.py approve</code>. Every approval is journalled: read <code>state.py events</code> before merging T3–T5.</p></div>
+      <div class="feat" data-rv><h3><a href="https://github.com/vanssata/claude-agentic-sdlc-module#the-deletion-gate-stops-an-agents-command-not-an-agents-script">Deletion gate: command, not script</a></h3><p>The hook matches spellings of <code>--confirm-delete</code>, so a script file, a variable or a renamed copy gets past it; <code>adopt.py</code> still refuses unless the agent-session markers are deliberately stripped. Run it in your own terminal. <span class="new">new in 2.0.2</span></p></div>
+      <div class="feat" data-rv><h3><a href="https://github.com/vanssata/claude-agentic-sdlc-module#ai_unattended1-turns-the-human-gates-off"><code>AI_UNATTENDED=1</code> opens the gates</a></h3><p>Meant for CI and cron. In an interactive shell it silently disables approval and deletion gates for every session it starts.</p></div>
+      <div class="feat" data-rv><h3><a href="https://github.com/vanssata/claude-agentic-sdlc-module#the-routing-hooks-are-less-protected-than-the-guards">Routing hooks are less protected</a></h3><p><code>runtime-gate.py</code> and <code>context-guard.py</code> are not yet on the path guard’s list. Review any diff under <code>hooks/</code> by hand.</p></div>
+      <div class="feat" data-rv><h3><a href="https://github.com/vanssata/claude-agentic-sdlc-module#the-compaction-snapshot-runs-git-in-the-working-directory">Snapshot runs <code>git</code> here</a></h3><p>A hostile repository can run its own code through local git config. Do not run agent sessions in repositories you do not trust.</p></div>
+      <div class="feat" data-rv><h3><a href="https://github.com/vanssata/claude-agentic-sdlc-module#codex-runs-only-hooks-you-re-approved">Codex skips unapproved hooks</a></h3><p>After an upgrade changes a hook entry, Codex silently skips it until you approve it again in <code>/hooks</code>.</p></div>
+      <div class="feat" data-rv><h3><a href="https://github.com/vanssata/claude-agentic-sdlc-module#codex-facts-are-observed-not-guaranteed">Codex facts are observed</a></h3><p>Spawn names and model precedence come from live probes. After a Codex upgrade, check <code>state.py events --type missed_reroute</code>.</p></div>
+      <div class="feat" data-rv><h3><a href="https://github.com/vanssata/claude-agentic-sdlc-module#budgets-and-quota-are-advice-not-limits">Budgets are advice</a></h3><p>Quota can be stale and the running-agent count can drift after a crash. None of them ever blocks work.</p></div>
+      <div class="feat" data-rv><h3><a href="https://github.com/vanssata/claude-agentic-sdlc-module#--adopt-edge-cases-fail-safe-not-smoothly"><code>--adopt</code> fails safe, not smoothly</a></h3><p>Run it on a clean, committed tree, read the dry run first, and keep <code>original/</code> until you have checked the result.</p></div>
+      <div class="feat" data-rv><h3><a href="https://github.com/vanssata/claude-agentic-sdlc-module#the-usage-reports-parse-cache-trusts-mtime-and-size">Usage cache trusts mtime and size</a></h3><p>A transcript rewritten in place could be counted twice. <code>--no-cache</code> tells you within one run. <span class="new">new in 2.0.2</span></p></div>
     </div>
   </div>
 </section>
@@ -645,7 +670,7 @@ cd claude-agentic-sdlc-module && ./install.sh
 
 <footer>
   <div class="wrap">
-    <span>claude-agentic v2.0.1<br><span class="tm">Claude is a trademark of Anthropic, Codex of OpenAI. An independent project.</span></span>
+    <span>claude-agentic v2.0.2<br><span class="tm">Claude is a trademark of Anthropic, Codex of OpenAI. An independent project.</span></span>
     <span><a href="https://github.com/vanssata/claude-agentic-sdlc-module/tree/main/docs">Docs</a> · <a href="https://github.com/vanssata/claude-agentic-sdlc-module/releases">Releases</a> · <a href="https://github.com/vanssata/claude-agentic-sdlc-module/issues">Issues</a></span>
   </div>
 </footer>
