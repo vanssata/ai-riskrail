@@ -223,9 +223,15 @@ class Adoption:
         self.split_dests = []           # every target a split writes, the instruction file included
         self.dropped = []               # dropped.jsonl records (spec I7)
         self.sources = []               # (path, tool, transform, row number, cleanup)
-        self.destinations = []          # (dest-or-path, tool, router text or None, coexist bool)
+        self.destinations = []          # (dest-or-path, tool, router, coexist bool); router is the
+        #                                 row's text or None, or a dict (A5): {"text", "file"} for a
+        #                                 row of its own, {"text", "globs"} in coexist
         self.rows_used = set()
         self.checks = {}                # "no-line-lost"/"no-dangling" -> (status, detail text)
+        self.moves = {}                 # A3: source path -> its one destination, for the rewrite
+        self.adopted_lines = {}         # A3: destination -> normalised lines that came from a source
+        self.instruction_targets = []   # A4: the root instruction files that point at ALWAYS_FILE
+        self.wants_pointer = False      # A4: an always rule was planned
 
     def note(self, action, subject, text):
         self.notes.append((action, subject, text))
@@ -340,14 +346,22 @@ def plan_file(plan, adoption, path, row, tool, roots):
         return
     if adoption.mode == "coexist":
         adoption.note("kept", path, "[%s] %s, kept in place (coexist)" % (tool, transform))
-        adoption.destinations.append((path, tool, row.get("router"), True))
+        globs = transform == "rule" and has_globs(data, row)
+        adoption.destinations.append((path, tool, {"text": row.get("router"), "globs": globs}, True))
         return
     text = data.decode("utf-8", "replace")
+    if not is_binary(data) and is_utf8(data):  # a lossy re-encode would change bytes nobody rewrote
+        new_text = rewrite_refs(path, text, adoption.moves, adoption, transform)
+        if new_text != text:
+            text, data = new_text, new_text.encode("utf-8")
     if transform == "rule":
         dest, content, note = rule_content(plan, path, text, row, tool, adoption)
         if dest is None:
             adoption.unmapped.append((path, tool))
             adoption.note("unmapped", path, "[%s] %s" % (tool, note))
+            return
+        if note == "rule: always" and adoption.mode == "migrate":
+            append_always(plan, adoption, path, text, tool, row)
             return
     elif transform == "append-section":
         dest = expand(row["dest"], path, roots)
@@ -356,6 +370,7 @@ def plan_file(plan, adoption, path, row, tool, roots):
         heading = "## Adopted from %s (%s)" % (TOOL_TITLE.get(tool, tool), os.path.basename(path))
         current = (plan.read(dest) or b"").decode("utf-8", "replace")
         if heading in current.split("\n"):
+            note_adopted(adoption, dest, text)
             adoption.destinations.append((dest, tool, row.get("router"), False))
             return  # already appended by an earlier run
         content = (current.rstrip("\n") + "\n\n" + heading + "\n\n" + text.strip("\n") + "\n").lstrip("\n").encode("utf-8")
@@ -364,18 +379,29 @@ def plan_file(plan, adoption, path, row, tool, roots):
     else:  # copy
         dest = expand(row["dest"], path, roots)
         content, note = data, "copy"
+    note_adopted(adoption, dest, text)
+    router = row.get("router")
+    if transform == "rule" and dest.startswith(".ai/policies/adopted/"):
+        # A5: an on-demand rule is found by what it is about, so it gets a row of its own.
+        router = {"text": rule_trigger(content), "file": True}
     existing = plan.read(dest)
     tag = "[%s] %s" % (tool, note)
     if transform == "append-section":
         plan.add("adopt", dest, note=tag, content=content, src=path, tool=tool)
-        adoption.destinations.append((dest, tool, row.get("router"), False))
+        adoption.destinations.append((dest, tool, router, False))
+    elif existing is not None and existing != content and only_new_refs(existing, content, adoption.moves):
+        # A3: adopted earlier, untouched since; a file moved by this run is
+        # named in it, and only that reference changes.
+        plan.add("adopt", dest, note=tag + "; references to newly moved files updated", content=content,
+                 src=path, tool=tool)
+        adoption.destinations.append((dest, tool, router, False))
     elif existing is not None and existing != content:
         plan.add("conflict", dest, note=tag + "; the destination exists and differs", src=path, tool=tool)
     elif existing != content:
         plan.add("adopt", dest, note=tag, content=content, src=path, tool=tool)
-        adoption.destinations.append((dest, tool, row.get("router"), False))
+        adoption.destinations.append((dest, tool, router, False))
     else:
-        adoption.destinations.append((dest, tool, row.get("router"), False))  # already there
+        adoption.destinations.append((dest, tool, router, False))  # already there
 
 
 def latest_with(root, name):
@@ -400,6 +426,162 @@ def load_decisions(root):
             return json.load(fh)
     except (OSError, ValueError) as exc:
         raise TableError("%s/decisions.json: %s" % (where, exc)) from exc
+
+
+def moves_of(plan, planned):
+    """A3: every source this run writes to exactly one destination, found
+    before anything is planned so a text can name a file planned after it."""
+    moves = {}
+    scratch = Adoption("migrate")  # rule_content logs into it; nothing is kept
+    for path, row, tool, roots in planned:
+        transform = row["transform"]
+        if transform in ("copy", "append-section") and row.get("dest"):
+            moves[path] = expand(row["dest"], path, roots)
+        elif transform == "rule":
+            text = (plan.read(path) or b"").decode("utf-8", "replace")
+            dest, _content, note = rule_content(plan, path, text, row, tool, scratch)
+            if dest and note == "rule: always":
+                moves[path] = ALWAYS_FILE  # A4: where plan_file will really put it
+            elif dest:
+                moves[path] = dest
+    return moves
+
+
+ALWAYS_FILE = ".ai/policies/adopted/always.md"
+ALWAYS_POINTER = "Read `%s` first." % ALWAYS_FILE
+ALWAYS_HEAD = "# Always applied\n\nRules their own tool loaded on every request, adopted as they were.\n"
+
+
+def append_always(plan, adoption, path, text, tool, row):
+    """A4 as amended: a rule its tool loads on every request goes into one
+    file, ALWAYS_FILE, under a heading of its own — the rule's path under its
+    row's root, so `a/index.mdc` and `b/index.mdc` stay apart — idempotent by
+    that heading, as append-section is. Every root instruction file with the
+    managed block gets ALWAYS_POINTER, outside the block; the planned pointer
+    is placed after the splits, which keep it (Candidate, `rewritten`)."""
+    front, body, _raw = frontmatter(text)
+    body = body.strip("\n")
+    base = row["source"].split("*")[0]
+    label = path[len(base):] if path.startswith(base) and len(path) > len(base) else os.path.basename(path)
+    heading = "## Adopted from %s (%s)" % (TOOL_TITLE.get(tool, tool), label)
+    title = " ".join(front.get(row.get("frontmatter", {}).get("title", ""), [])).strip()
+    section = (("_%s_\n\n" % title) if title else "") + body
+    note_adopted(adoption, ALWAYS_FILE, section)
+    current = (plan.read(ALWAYS_FILE) or b"").decode("utf-8", "replace") or ALWAYS_HEAD
+    if heading not in current.split("\n"):
+        content = (current.rstrip("\n") + "\n\n" + heading + "\n\n" + section + "\n").encode("utf-8")
+        plan.add("adopt", ALWAYS_FILE, note="[%s] rule: always" % tool, content=content, src=path, tool=tool)
+    if adoption.instruction_targets:
+        adoption.destinations.append((ALWAYS_FILE, tool, {"skip": True}, False))
+        adoption.wants_pointer = True
+    else:  # no instruction file to point from: the router's first row does it
+        adoption.destinations.append((ALWAYS_FILE, tool, {"text": "every task, first", "file": True}, False))
+
+
+def pointer_bytes(adoption, target, text):
+    """The bytes plan_pointers will add to `target`: 0 when it adds none."""
+    if not adoption.wants_pointer or target not in adoption.instruction_targets \
+            or ALWAYS_POINTER in text.split("\n"):
+        return 0
+    return len(ALWAYS_POINTER.encode("utf-8")) + 2
+
+
+def plan_pointers(plan, adoption):
+    """A4: the pointer to ALWAYS_FILE in each root instruction file, once."""
+    for target in adoption.instruction_targets if adoption.wants_pointer else ():
+        current = (plan.read(target) or b"").decode("utf-8", "replace")
+        if ALWAYS_POINTER in current.split("\n"):
+            continue
+        content = (current.rstrip("\n") + "\n\n" + ALWAYS_POINTER + "\n").encode("utf-8")
+        plan.add("adopt", target, note="pointer to %s" % ALWAYS_FILE, content=content)
+
+
+def has_globs(data, row):
+    """L: does this rule file itself carry a globs/paths value (coexist suffix)."""
+    key = row.get("frontmatter", {}).get("paths")
+    if not key:
+        return False
+    try:
+        front = frontmatter(data.decode("utf-8", "replace"))[0]
+    except render_instructions.RenderError:
+        return False
+    return any(v.strip() for v in front.get(key, []))
+
+
+def is_utf8(data):
+    try:
+        data.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    return True
+
+
+def only_new_refs(existing, content, moves):
+    """A3, a later run: the destination on disk is what an earlier run wrote,
+    and today's content differs from it only by references to files this run
+    moves — the same text once those references are rewritten on disk too."""
+    try:
+        old = existing.decode("utf-8")
+    except UnicodeDecodeError:
+        return False
+    return rewrite_refs(None, old, moves, None, None).encode("utf-8") == content
+
+
+def rule_trigger(content):
+    """A5: what a router row says an adopted rule is for — its title (the
+    frontmatter description, rendered as the first `# ` heading), or None."""
+    for line in content.decode("utf-8", "replace").split("\n"):
+        if line.startswith("# "):
+            return line[2:].strip().replace("|", "/") or None
+    return None
+
+
+def rewrite_refs(path, text, moves, adoption, transform):
+    """A3: rewrite each reference to a moved file to its destination, line by
+    line, logging every rewritten source line so no-line-lost skips it as it
+    skips a rewritten frontmatter line. A directory reference has no single
+    destination and is left alone (check_refs names it)."""
+    if not moves:
+        return text
+    rules = [(ref_pattern(old), new) for old, new in sorted(moves.items(), key=lambda m: -len(m[0]))
+             if old != path]
+    out = []
+    for n, line in enumerate(text.split("\n"), 1):
+        new = line
+        for rx, dest in rules:
+            new = rx.sub(lambda m, d=dest: m.group(1) + d, new)
+        if new != line and adoption is not None:
+            adoption.dropped.append({"source": path, "line": n, "text": line,
+                                     "reason": "rewritten: path reference", "by": "transform:%s" % transform})
+        out.append(new)
+    return "\n".join(out)
+
+
+def adopted_key(line):
+    """A3's line identity: the stripped line. Not `normalise`, which drops
+    headings — and a foreign heading can carry a path too."""
+    return line.strip()
+
+
+def note_adopted(adoption, dest, text):
+    """A3: remember which lines of `dest` came from a foreign source."""
+    lines = adoption.adopted_lines.setdefault(dest, set())
+    for raw in text.split("\n"):
+        if adopted_key(raw):
+            lines.add(adopted_key(raw))
+
+
+def decision_for(path, decisions):
+    """A2: the human's decision for `path` — an exact key first, else the
+    longest glob key that matches it (the table's own `*` / `**` rules).
+    Returns (decision or None, the key it came from)."""
+    if path in decisions:
+        return decisions[path], path
+    globs = sorted((k for k in decisions if any(c in k for c in "*?")), key=len, reverse=True)
+    for key in globs:
+        if glob_re(key).match(path):
+            return decisions[key], key
+    return None, None
 
 
 def plan_adopt(plan, table, mode="migrate", tools=None, shipped_block=None, skeleton_cap=None,
@@ -441,6 +623,7 @@ def plan_adopt(plan, table, mode="migrate", tools=None, shipped_block=None, skel
                 break
         tool = taken[0] if taken else owners[0]
         by_tool[tool].append((path, taken[1] if taken else None))
+    planned = []
     for tool, entries in by_tool.items():
         groups = OrderedDict()
         for path, _ in entries:
@@ -450,7 +633,12 @@ def plan_adopt(plan, table, mode="migrate", tools=None, shipped_block=None, skel
         roots = table["tools"][tool]["roots"]
         for path, row in entries:
             if row is None:
-                decided = decisions.get(path)
+                decided, key = decision_for(path, decisions)
+                if decided and decided.get("action") == "copy" and key != path:
+                    adoption.unmapped.append((path, tool))
+                    adoption.note("unmapped", path, "[%s] decisions.json key %r: a glob decision cannot copy — "
+                                  "one destination per file, so name the file" % (tool, key))
+                    continue
                 if decided and decided.get("action") == "copy" and not decision_dest_ok(decided.get("dest")):
                     adoption.unmapped.append((path, tool))
                     adoption.note("unmapped", path, "[%s] decisions.json copies it to %r, not an allowed destination"
@@ -465,11 +653,18 @@ def plan_adopt(plan, table, mode="migrate", tools=None, shipped_block=None, skel
                     adoption.note("unmapped", path, "[%s] no mapping row — settle it in %s/decisions.json"
                                   % (tool, report_dir(plan)))
                     continue
-            plan_file(plan, adoption, path, row, tool, roots)
+            planned.append((path, row, tool, roots))
+    adoption.moves = moves_of(plan, planned)
+    if adoption.mode == "migrate":  # A4: where the pointer to ALWAYS_FILE goes
+        adoption.instruction_targets = [
+            f for f in sorted(instruction_files)
+            if render_instructions.block_of((plan.read(f) or b"").decode("utf-8", "replace")) is not None]
+    for path, row, tool, roots in planned:
+        plan_file(plan, adoption, path, row, tool, roots)
     # Foreign signatures below the root are never adopted, only listed (R4).
     for path in files:
         nested = nested_signature(path, table, wanted)
-        if nested and path not in decisions and all(p != path for p, _ in adoption.unmapped):
+        if nested and decision_for(path, decisions)[0] is None and all(p != path for p, _ in adoption.unmapped):
             tool, head = nested
             adoption.unmapped.append((path, tool))
             adoption.note("unmapped", path, "[%s] below the root (%s/) — only the root is adopted" % (tool, head))
@@ -488,14 +683,18 @@ def plan_adopt(plan, table, mode="migrate", tools=None, shipped_block=None, skel
             continue
         shipped = shipped_block(tool)
         whole = (text.replace(block, shipped) if block is not None else text.rstrip("\n") + "\n\n" + shipped)
-        size = len(whole.encode("utf-8"))
+        # A4: the pointer this run will add counts against the budget, and a
+        # split keeps it and leaves room for it (Candidate).
+        reserve = pointer_bytes(adoption, sig, text)
+        size = len(whole.encode("utf-8")) + reserve
         if size > skeleton_cap:
             adoption.rows_used.add(row["_n"])
-            adoption.candidates.append((Candidate(sig, tool, text, shipped, skeleton_cap), row["_n"]))
+            adoption.candidates.append((Candidate(sig, tool, text, shipped, skeleton_cap - reserve), row["_n"]))
     if splits and adoption.mode == "migrate":
         plan_splits(plan, adoption, adoption.candidates, split_mode, all_decisions)
     elif not splits:
         adoption.split = [c.path for c, _ in adoption.candidates]
+    plan_pointers(plan, adoption)
     add_router_rows(plan, router_rows_text(adoption))
     if run_checks and not adoption.unmapped:
         line_status, lines, missing, missing_n = check_lines(plan, adoption)
@@ -885,8 +1084,8 @@ def git_files(root):
     return [p for p in proc.stdout.decode("utf-8", "surrogateescape").split("\0") if p]
 
 
-COEXIST_LINK_RE = re.compile(r"^\| .* \| (?P<path>\S+) \(kept in place; its globs are "
-                             r"not applied by this runtime\) \|$", re.M)
+COEXIST_LINK_RE = re.compile(r"^\| .* \| (?P<path>\S+) \(kept in place(?:; its globs are "
+                             r"not applied by this runtime)?\) \|$", re.M)
 
 
 def warnings_text(warns):
@@ -924,6 +1123,8 @@ def check_refs(plan, adoption, table, instruction_files=frozenset(), shipped_fil
     for path in files:
         if path in moved or path in old:
             continue
+        if path.startswith(".ai/reports/adopt-"):
+            continue  # the adopt's own record: it names the old paths on purpose
         if path in plan.final:
             data = plan.final[path]
         else:
@@ -945,15 +1146,20 @@ def check_refs(plan, adoption, table, instruction_files=frozenset(), shipped_fil
         unedited = shipped_files is not None and shipped_files.get(path) == data
         text = data.decode("utf-8", "replace")
         hard = is_hard_scope(path, text, instruction_files) and not unedited
+        foreign = adoption.adopted_lines.get(path, ())
         for i, line in enumerate(text.split("\n"), 1):
             hit = next((p for p, rx in zip(old, patterns) if rx.search(line)), None)
             if hit is None:
                 continue
-            if hard:
+            # A3: a line that came verbatim from a foreign source this run
+            # adopts is that tool's own wording, named, not the project's dependency.
+            # Every line is classified: with A3 a warned line can come first in
+            # a file, and a file-level stop there would hide the project's own
+            # stale reference further down. (`next` above already takes one hit per line.)
+            if hard and adopted_key(line) not in foreign:
                 hard_misses.append((path, i, hit))
             else:
                 warn_misses.append((path, i, hit))
-            break  # one hit per line is enough to classify it
     return ("fail" if hard_misses else "pass"), hard_misses, warn_misses
 
 
@@ -967,22 +1173,35 @@ ROUTER_FILE = ".ai/AGENTS.md"
 
 
 def router_rows_text(adoption):
-    """I9: one row per (tool, destination directory) in migrate mode, one row
-    per (tool, path) in coexist. Returns the row texts, in first-seen order."""
+    """I9 as amended (A5). Migrate: one row per (tool, destination directory),
+    and one per file for an on-demand rule, triggered by its title. Coexist:
+    one row per (tool, directory of the kept path), with the globs suffix only
+    when a rule with a globs key is among them. Returns the row texts, in
+    first-seen order."""
     rows = OrderedDict()
-    for dest, tool, router_text, coexist in adoption.destinations:
-        title = router_text or ("an adopted %s file" % TOOL_TITLE.get(tool, tool))
+    for dest, tool, router, coexist in adoption.destinations:
+        spec = router if isinstance(router, dict) else {"text": router}
+        if spec.get("skip"):
+            continue  # A4: the instruction files point at it; it needs no row
+        title = spec.get("text") or ("an adopted %s file" % TOOL_TITLE.get(tool, tool))
         if coexist:
-            key = (tool, dest)
-            shown = dest
-            suffix = " (kept in place; its globs are not applied by this runtime)"
-        else:
             rel_dir = os.path.dirname(dest)
             key = (tool, rel_dir)
-            shown = (rel_dir[len(".ai/"):] if rel_dir.startswith(".ai/") else rel_dir) + "/"
-            suffix = ""
-        rows.setdefault(key, "| %s | %s%s |" % (title, shown, suffix))
-    return list(rows.values())
+            shown = rel_dir + "/" if rel_dir else dest
+            row = rows.setdefault(key, [title, shown, False])
+            row[2] = row[2] or bool(spec.get("globs"))
+            continue
+        target = dest if spec.get("file") else os.path.dirname(dest) + "/"
+        shown = target[len(".ai/"):] if target.startswith(".ai/") else target
+        rows.setdefault((tool, target), [title, shown, None])
+    out = []
+    for title, shown, globs in rows.values():
+        if globs is None:
+            out.append("| %s | %s |" % (title, shown))
+        else:
+            out.append("| %s | %s (kept in place%s) |" % (
+                title, shown, "; its globs are not applied by this runtime" if globs else ""))
+    return out
 
 
 def add_router_rows(plan, rows):
@@ -994,14 +1213,22 @@ def add_router_rows(plan, rows):
     if not text:
         return 0
     lines = text.split("\n")
+    # A5: a coexist row per file, the form before 2026-09-27, is this tool's
+    # own and is superseded by the row for its directory.
+    dir_rows = {m.group("path") for r in rows for m in [COEXIST_LINK_RE.match(r)] if m
+                and m.group("path").endswith("/")}
+    stale = [l for l in lines for m in [COEXIST_LINK_RE.match(l)] if m
+             and not m.group("path").endswith("/") and os.path.dirname(m.group("path")) + "/" in dir_rows]
+    lines = [l for l in lines if l not in stale]
     last = max((i for i, l in enumerate(lines) if l.startswith("|")), default=None)
     if last is None:
         return 0
     to_add = [r for r in rows if r not in lines]
-    if not to_add:
+    if not to_add and not stale:
         return 0
     new_lines = lines[:last + 1] + to_add + lines[last + 1:]
-    plan.add("router", ROUTER_FILE, note="+%d row(s)" % len(to_add), content="\n".join(new_lines).encode("utf-8"))
+    note = "+%d row(s)" % len(to_add) + (", -%d superseded" % len(stale) if stale else "")
+    plan.add("router", ROUTER_FILE, note=note, content="\n".join(new_lines).encode("utf-8"))
     return len(to_add)
 
 
@@ -1536,13 +1763,18 @@ class Candidate:
             end = next(i for i, l in enumerate(self.lines, 1) if render_instructions.BLOCK_END in l)
             self.block = (start, end)
         self.edited = block is not None and block != shipped
+        pointer = {n for n, l in enumerate(self.lines, 1) if l == ALWAYS_POINTER}
         if self.block is None:
             self.nums = list(range(1, len(self.lines) + 1))
         elif self.edited:
             self.nums = [n for n in range(1, len(self.lines) + 1) if n not in self.block]
         else:
             self.nums = [n for n in range(1, len(self.lines) + 1) if not self.block[0] <= n <= self.block[1]]
-        self.keep_budget = cap - len(shipped.encode("utf-8"))
+        # A4: the pointer to ALWAYS_FILE is the plugin's own line; a split keeps
+        # it where it is (`rewritten`), and it is paid for out of the budget.
+        self.nums = [n for n in self.nums if n not in pointer]
+        self.keep_budget = cap - len(shipped.encode("utf-8")) - sum(len(ALWAYS_POINTER.encode("utf-8")) + 1
+                                                                    for _ in pointer)
         self.outline = [{"line": n, "heading": self.lines[n - 1]} for n in self.nums
                         if HEADING_RE.match(self.lines[n - 1])]
 
@@ -1737,7 +1969,7 @@ def rewritten(cand, keep):
                 inside.append(line)  # an edited block's kept lines follow the shipped block
             if n == cand.block[1]:
                 out += inside
-        elif n in keep:
+        elif n in keep or line == ALWAYS_POINTER:
             out.append(line)
     if cand.block is None:
         while out and not out[-1].strip():
@@ -1820,7 +2052,7 @@ def check_added(plan, adoption):
     Returns the offending "file:line"s."""
     if not adoption.split_done:
         return []
-    allowed = set()
+    allowed = {normalise(ALWAYS_POINTER)}  # A4: the plugin's own line, generated like the block
     for done in adoption.split_done.values():
         allowed.update(normalise(l) for l in done["text"].split("\n"))
         allowed.update(done["generated"])
