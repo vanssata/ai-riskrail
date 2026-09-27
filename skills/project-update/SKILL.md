@@ -78,7 +78,7 @@ idempotent, and the message names the file. Run the dry run again and show it.
 **A `delete?` line is for the human, not for you.** Never pass
 `--confirm-delete` yourself, not even when `$ARGUMENTS` contains `--apply`.
 Show the proposed deletion and its reason, and give them the command to run in
-their own terminal:
+their own terminal, outside Claude Code or Codex — the `!` prefix is refused:
 
 ```bash
 python3 "$AI_HOME/skills/project-update/update.py" "$PWD" --apply --confirm-delete "<your name>"
@@ -206,7 +206,8 @@ and stop — never edit a destination or a source to make it pass.
    `--confirm-delete` rule in §4 holds here too, and setting `AI_UNATTENDED` so
    the command passes without a terminal is the same act as typing their name.
    Run `$UPDATE --adopt --cleanup` to show what would go, then give the human
-   the full command, both paths absolute, for their own terminal:
+   the full command, both paths absolute, for their own terminal outside
+   Claude Code or Codex:
 
    ```bash
    python3 "<AI_HOME>/skills/project-update/update.py" "<project>" --adopt --cleanup --apply --confirm-delete "<your name>"

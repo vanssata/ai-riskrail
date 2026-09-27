@@ -9,7 +9,8 @@ Default is a dry run: print what would change, write nothing.
   --check --budget   print one line per root instruction file over its byte
             budget (block over `project`, file over `skeleton`) and exit 1
   --confirm-delete NAME   a human confirms this run's proposed deletions; refused
-            (exit 5) when no human is present: no terminal and no AI_UNATTENDED
+            (exit 5) unless a terminal outside Claude Code or Codex (no agent-session
+            marker) or AI_UNATTENDED; the record says which (via)
 
 Exit codes:
   0  done (or, with --check, the project is current)
@@ -514,6 +515,7 @@ class Plan:
         self.hints = []
         self.schema = None  # (from, to, [migration modules]) when migrations are pending
         self.confirm_delete = None  # the human who confirmed this run's deletions
+        self.confirm_via = None  # why that gate passed: "terminal" or "unattended"
         self.held = None  # the schema version kept until a migration item is settled
         self.final = {}   # target -> bytes after this run (for cross-file fixes)
         self.removed = set()  # targets this run takes away
@@ -842,9 +844,10 @@ def constitution_hint(plan):
         plan.hints.append(line.replace(path, rel))
 
 
-def build_plan(root, confirm_delete=None):
+def build_plan(root, confirm_delete=None, confirm_via=None):
     plan = Plan(root)
     plan.confirm_delete = confirm_delete
+    plan.confirm_via = confirm_via
     has_ai = os.path.isdir(os.path.join(root, ".ai"))
     has_sdlc = os.path.isdir(os.path.join(root, "docs", "sdlc"))
     if not (has_ai or has_sdlc):
@@ -1086,7 +1089,7 @@ def apply_item(plan, item, written, recorded):
         record_migration(plan,
                          [dict(action=action, migration=item["migration"],
                                **(dict(src=item["src"], dst=target) if action == "move" else dict(path=target)))],
-                         [dict(path=target, confirmed_by=plan.confirm_delete, at=utc_now())]
+                         [dict(path=target, confirmed_by=plan.confirm_delete, via=plan.confirm_via, at=utc_now())]
                          if action == "delete" else [])
     elif item["content"] is not None:
         check(plan, item, target, item["expect"], written)
@@ -1212,6 +1215,7 @@ def main():
                     help="a human confirms this run's proposed deletions, and is recorded in "
                          "the migration report; only with --apply")
     args = ap.parse_args()
+    confirm_via = None
     if args.confirm_delete is not None:
         if not args.apply:
             ap.error("--confirm-delete only makes sense with --apply")
@@ -1220,10 +1224,14 @@ def main():
         if adopt.placeholder_name(args.confirm_delete):
             ap.error("--confirm-delete got the placeholder %r; type your own name, it is the audit trail"
                      % args.confirm_delete.strip())
-        if not adopt.human_present():
-            return adopt.refuse("--confirm-delete is typed by a human, and this run has no terminal",
-                                "run the same command yourself in a terminal, or set AI_UNATTENDED=1 "
-                                "if a launcher runs it unattended on your behalf")
+        passed, confirm_via, why = adopt.human_gate()
+        if not passed:
+            # Under an agent-session marker the AI_UNATTENDED route is the launcher's
+            # to declare, not the agent's to type: the hint names it only otherwise.
+            hint = "run the same command yourself in a terminal outside Claude Code or Codex"
+            if "agent session" not in why:
+                hint += ", or set AI_UNATTENDED=1 if a launcher runs it unattended on your behalf"
+            return adopt.refuse("--confirm-delete is typed by a human, and %s" % why, hint)
     if args.budget and not args.check:
         ap.error("--budget only makes sense with --check")
     if not args.adopt and (args.tool or args.mode != "migrate" or args.split_request or args.split or args.diff
@@ -1262,7 +1270,7 @@ def main():
             print("project-update: %s templates not found at %s (run claude-agentic/install.sh)" % (name, tpl), file=sys.stderr)
             return 2
     try:
-        plan = build_plan(root, confirm_delete=getattr(args, "confirm_delete", None))
+        plan = build_plan(root, confirm_delete=getattr(args, "confirm_delete", None), confirm_via=confirm_via)
     except SchemaError as exc:
         # --check is read by /ai-status, which reads stdout: it must see the reason.
         print("project-update: %s" % exc, file=sys.stdout if args.check else sys.stderr)

@@ -440,6 +440,48 @@ rc=0
 rc=0
 ### ai-scope-guard | fixture path-guard/44-read-constitution-in-task.json
 rc=0
+### ai-git-guard | fixture path-guard/45-bash-update-confirm-delete.json
+rc=0
+### ai-path-guard | fixture path-guard/45-bash-update-confirm-delete.json
+rc=0
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Refusing 'update.py --apply --confirm-delete' from an agent session.\n\n--confirm-delete is a human confirming an irreversible deletion, and the name\ntyped is the audit trail. A human runs the same command in a terminal\noutside Claude Code or Codex (not through the ! prefix: that shell is the\nagent's). An unattended run exports AI_UNATTENDED=1 in the launcher's environment, and the\nrecord then says via: unattended. See skills/project-update/SKILL.md."}}
+### ai-scope-guard | fixture path-guard/45-bash-update-confirm-delete.json
+rc=0
+### ai-git-guard | fixture path-guard/46-bash-update-confirm-delete-script-wrapped.json
+rc=0
+### ai-path-guard | fixture path-guard/46-bash-update-confirm-delete-script-wrapped.json
+rc=0
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Refusing 'update.py --apply --confirm-delete' from an agent session.\n\n--confirm-delete is a human confirming an irreversible deletion, and the name\ntyped is the audit trail. A human runs the same command in a terminal\noutside Claude Code or Codex (not through the ! prefix: that shell is the\nagent's). An unattended run exports AI_UNATTENDED=1 in the launcher's environment, and the\nrecord then says via: unattended. See skills/project-update/SKILL.md."}}
+### ai-scope-guard | fixture path-guard/46-bash-update-confirm-delete-script-wrapped.json
+rc=0
+### ai-git-guard | fixture path-guard/47-bash-update-confirm-delete-continuation.json
+rc=0
+### ai-path-guard | fixture path-guard/47-bash-update-confirm-delete-continuation.json
+rc=0
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Refusing 'update.py --apply --confirm-delete' from an agent session.\n\n--confirm-delete is a human confirming an irreversible deletion, and the name\ntyped is the audit trail. A human runs the same command in a terminal\noutside Claude Code or Codex (not through the ! prefix: that shell is the\nagent's). An unattended run exports AI_UNATTENDED=1 in the launcher's environment, and the\nrecord then says via: unattended. See skills/project-update/SKILL.md."}}
+### ai-scope-guard | fixture path-guard/47-bash-update-confirm-delete-continuation.json
+rc=0
+### ai-git-guard | fixture path-guard/48-bash-update-confirm-delete-var.json
+rc=0
+### ai-path-guard | fixture path-guard/48-bash-update-confirm-delete-var.json
+rc=0
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Refusing 'update.py --apply --confirm-delete' from an agent session.\n\n--confirm-delete is a human confirming an irreversible deletion, and the name\ntyped is the audit trail. A human runs the same command in a terminal\noutside Claude Code or Codex (not through the ! prefix: that shell is the\nagent's). An unattended run exports AI_UNATTENDED=1 in the launcher's environment, and the\nrecord then says via: unattended. See skills/project-update/SKILL.md."}}
+### ai-scope-guard | fixture path-guard/48-bash-update-confirm-delete-var.json
+rc=0
+### ai-git-guard | fixture path-guard/49-bash-update-confirm-delete-module.json
+rc=0
+### ai-path-guard | fixture path-guard/49-bash-update-confirm-delete-module.json
+rc=0
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Refusing 'update.py --apply --confirm-delete' from an agent session.\n\n--confirm-delete is a human confirming an irreversible deletion, and the name\ntyped is the audit trail. A human runs the same command in a terminal\noutside Claude Code or Codex (not through the ! prefix: that shell is the\nagent's). An unattended run exports AI_UNATTENDED=1 in the launcher's environment, and the\nrecord then says via: unattended. See skills/project-update/SKILL.md."}}
+### ai-scope-guard | fixture path-guard/49-bash-update-confirm-delete-module.json
+rc=0
+### ai-git-guard | fixture path-guard/50-bash-update-confirm-delete-inline-unattended.json
+rc=0
+### ai-path-guard | fixture path-guard/50-bash-update-confirm-delete-inline-unattended.json
+rc=0
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Refusing 'update.py --apply --confirm-delete' from an agent session.\n\n--confirm-delete is a human confirming an irreversible deletion, and the name\ntyped is the audit trail. A human runs the same command in a terminal\noutside Claude Code or Codex (not through the ! prefix: that shell is the\nagent's). An unattended run exports AI_UNATTENDED=1 in the launcher's environment, and the\nrecord then says via: unattended. See skills/project-update/SKILL.md."}}
+### ai-scope-guard | fixture path-guard/50-bash-update-confirm-delete-inline-unattended.json
+rc=0
 ### ai-git-guard | fixture scope-guard/01-in-scope.json
 rc=0
 ### ai-path-guard | fixture scope-guard/01-in-scope.json
@@ -621,6 +663,13 @@ rc=0
 rc=0
 {"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Refusing 'state.py approve' from an agent session.\n\nApproval happens outside the agent. A human runs, in their own terminal:\n  python3 <plugin>/skills/ai-task/state.py --root . approve --by \"<name>\"\nor sets [Answer]: A on the gate question in .ai/reports/<task-id>/questions.md\nand tells the session to run state.py questions --sync. An unattended run\nexports AI_UNATTENDED=1 in the launcher's environment, and the journal then\nrecords the approval as unattended for ever. See .ai/policies/safety.md."}}
 ### ai-scope-guard | fixture codex-hooks/40-bash-state-approve.json
+rc=0
+### ai-git-guard | fixture codex-hooks/41-bash-update-confirm-delete.json
+rc=0
+### ai-path-guard | fixture codex-hooks/41-bash-update-confirm-delete.json
+rc=0
+{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"Refusing 'update.py --apply --confirm-delete' from an agent session.\n\n--confirm-delete is a human confirming an irreversible deletion, and the name\ntyped is the audit trail. A human runs the same command in a terminal\noutside Claude Code or Codex (not through the ! prefix: that shell is the\nagent's). An unattended run exports AI_UNATTENDED=1 in the launcher's environment, and the\nrecord then says via: unattended. See skills/project-update/SKILL.md."}}
+### ai-scope-guard | fixture codex-hooks/41-bash-update-confirm-delete.json
 rc=0
 ### ai-git-guard | main bash: git status
 rc=0

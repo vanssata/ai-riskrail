@@ -237,7 +237,8 @@ run opens with a `schema 0 -> N` line: migrations run first, in order, moving or
 adding files before anything is merged. A file that moves takes your edits with
 it, and the original is kept under `.ai/reports/project-update-<date>/`. A
 migration can *propose* a deletion; it never performs one. Confirming it is
-yours to type, in your own terminal, because an agent is not allowed to:
+yours to type, in your own terminal outside Claude Code or Codex (not through
+the `!` prefix, whose shell is the agent's), because an agent is not allowed to:
 
 ```bash
 python3 "${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills/project-update/update.py" . --apply --confirm-delete "<your name>"

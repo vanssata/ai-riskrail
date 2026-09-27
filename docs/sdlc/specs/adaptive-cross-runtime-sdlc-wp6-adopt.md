@@ -179,6 +179,16 @@ WP1's `--confirm-delete` too (OQ3). `clean_tree(root)` runs
 `subprocess.run(["git", "-C", root, "status", "--porcelain", "--untracked-files=all"], check=False,
 capture_output=True, text=True)`; a non-zero exit code means "not a git work tree".
 
+*Amended 2026-09-27 (finding F3, T-2026-09-27-003):* a terminal is not proof of a human — an agent
+opens one with `script -qec`. `human_present()` is replaced by `adopt.human_gate() -> (passed, via,
+why)`: a tty with no agent-session marker (`CLAUDECODE`, `CODEX_THREAD_ID`, `CODEX_SESSION_ID`,
+`CODEX_CI`, `CODEX_SANDBOX`, `CODEX_SANDBOX_NETWORK_DISABLED`, present even if empty) passes as
+`terminal`; otherwise `AI_UNATTENDED` passes as `unattended`; otherwise exit 5 naming what was
+seen. `adopt.json` `cleanup` and `migration.json` `deletions[]` gain `via`; `cleanup.unattended`
+is `via == "unattended"`. `hooks/ai-path-guard.sh` denies an agent Bash command running
+`update.py --apply --confirm-delete` (any argparse prefix) unless the hook's own environment has
+`AI_UNATTENDED`.
+
 ### I2 `adopt-map.json` — the initial table
 
 Every `source` below is an **assumption until plan step 1 verifies it against a real sample**

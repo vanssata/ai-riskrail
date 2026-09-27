@@ -1,0 +1,1 @@
+{"case":"update.py --apply --confirm-delete from an agent shell is denied (F3)","expect":"deny","payload":{"hook_event_name":"PreToolUse","tool_name":"Bash","cwd":"__ROOT__","tool_input":{"command":"python3 /home/u/.claude/skills/project-update/update.py . --adopt --cleanup --apply --confirm-delete ivan"}}}
