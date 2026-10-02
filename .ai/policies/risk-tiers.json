@@ -416,7 +416,7 @@
       "**/generated/**",
       "**/*.generated.*",
       ".ai/state/**",
-      ".ai/reports/**", 
+      ".ai/reports/**",
       "tests/fixtures/guard-port/**",
       "tests/fixtures/ere/cases.tsv"
     ],
