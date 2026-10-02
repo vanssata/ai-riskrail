@@ -28,6 +28,14 @@ is decided by `pipeline_profile` in `risk-tiers.json`: in `solo`, T0–T2 run in
 direct mode — nothing on STRONG, one BALANCED review at T2 — and tests run once
 after the last step, to the end, with every failure fixed as one batch.
 
+**Reading by difficulty.** A lookup — where X is, one route, service id, config
+key or template — is FAST work (`Explore`). A trace of how the *installed*
+third-party code behaves — `vendor/`, `node_modules/`, through decorators,
+compiler passes, service or template overrides and event subscribers — is
+BALANCED work at effort `low`: `ai-discovery`, named. A FAST reader tends to
+stop at the first plausible match, and there a wrong answer reads exactly
+like a right one.
+
 **Codex agent precedence.** A value written into a Codex agent file wins over the
 model asked for when the agent is spawned. So "re-run `ai-risk` on a stronger
 model" cannot work there; the STRONG re-runs use the dedicated `ai-risk-strong`

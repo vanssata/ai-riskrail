@@ -12,8 +12,6 @@
           "adversarial_review"
         ],
         "T3": [
-          "plan",
-          "plan_review",
           "adversarial_review"
         ],
         "T4": [
@@ -37,7 +35,8 @@
         "the developer says the area is unfamiliar, or the request names no entry point and grep does not find one within a few calls (Explore on FAST, then ai-discovery if Explore returned nothing usable)",
         "the inline context summary has an UNKNOWN the plan depends on (ai-discovery, one agent)",
         "the risk tier is T3 or above and not obvious from the trigger table (ai-risk on STRONG)",
-        "the verification command prints more than ~40 lines (log-reader on FAST), or the test setup is unfamiliar (ai-tester on FAST)"
+        "the verification command prints more than ~40 lines (log-reader on FAST), or the test setup is unfamiliar (ai-tester on FAST)",
+        "at T3, the change crosses a module the developer does not own, or plan mode leaves a (blocking) question open (ai-planner on STRONG, one call)"
       ],
       "review_model": {
         "T2": "BALANCED",
@@ -45,23 +44,23 @@
         "T4": "STRONG",
         "T5": "STRONG"
       },
-      "release_report": "T0–T2: the commit message body; T3: the session writes the short form into task.md; T4 and T5: ai-release",
+      "release_report": "T0–T2: the commit message body; T3: the same short form, also appended to task.md; T4 and T5: ai-release",
       "plan": {
         "T0": "none",
         "T1": "none",
         "T2": "three to five lines in the conversation, registered through `state.py quick`; plan mode only when the change spans several modules",
-        "T3": "ai-planner on STRONG, in plan mode",
+        "T3": "the session, in plan mode: numbered steps with their files, the characterization tests first, a one-line rollback; the human accepting plan mode is the plan approval, then `state.py quick --tier T3`",
         "T4": "ai-planner on STRONG, in plan mode",
         "T5": "ai-expert"
       },
       "test": "three scopes. During a step: only the tests the plan named for that step (`step_test_command` scoped to its files), fixed inside the step before `state.py step-done` — never the full suite, never e2e. After the LAST step: `verify_command` once, to the end, no fail-fast flag, output through tail -40 or log-reader; every failure is collected and classified first, every NEW REGRESSION is fixed in ONE `state.py remediate` step and the command runs once more, at most two rounds. At the END of the task, after the full suite is green: `e2e_command` once, never per step, skipped at T0/T1 and when no e2e-covered flow can be reached (say which).",
       "e2e": "once per task, at the end, after verify_command is green and before the adversarial review. T0/T1: none. T2+: required when the change can reach a flow the e2e suite covers, otherwise one line saying why it cannot. T4/T5: always, and its result goes in the release report. Record it with `state.py set e2e_status <passing|failing|not_applicable|not_run>`.",
-      "triage": "T0/T1: no state file. T2: `state.py quick` records discovery, context, impact, risk and the one-step plan in a single call. T3+: the stages run and are recorded one at a time.",
+      "triage": "T0/T1: no state file. T2 and T3: `state.py quick` records discovery, context, impact, risk and the one-step plan in a single call (at T3 after the human approved the plan). T4+: the stages run and are recorded one at a time.",
       "artifacts": {
         "T0": "none — the commit message",
         "T1": "none — the commit message",
         "T2": "none — the state archive and the commit message",
-        "T3": "task.md plus the delegated plan and review reports",
+        "T3": "task.md with the plan, the review verdict and the release short form",
         "T4": "the full set",
         "T5": "the full set"
       },
@@ -69,16 +68,16 @@
         "T0": "direct",
         "T1": "direct",
         "T2": "direct",
-        "T3": "sdlc",
+        "T3": "direct",
         "T4": "sdlc",
         "T5": "sdlc"
       },
       "direct": {
-        "state": "T0/T1: none — the commit message is the record. T2: one `state.py quick` call (init + triage + one-step plan) so the scope guard is armed; `state.py close` at the end",
-        "plan": "T0/T1: say which files, in one line. T2: three to five lines in the conversation — steps and files — never a file",
-        "artifacts": "none below T3",
-        "agents": "Explore and log-reader on FAST for reading; ai-implementer on BALANCED for a mechanical pattern-copy step; ai-reviewer on BALANCED once at T2 — nothing on STRONG",
-        "review": "T0/T1: none. T2: one ai-reviewer on the BALANCED model over the diff, after the tests pass; findings fixed as one batch in a `state.py remediate` step; one scoped re-review only when a BLOCKER was fixed",
+        "state": "T0/T1: none — the commit message is the record. T2/T3: one `state.py quick` call (init + triage + one-step plan) so the scope guard is armed; `state.py close` at the end (T3: after the human approved the result)",
+        "plan": "T0/T1: say which files, in one line. T2: three to five lines in the conversation — steps and files — never a file. T3: the same list written in plan mode, with characterization tests first and a rollback line; the human approves it before any edit",
+        "artifacts": "none below T3; T3: task.md",
+        "agents": "Explore and log-reader on FAST for reading; ai-implementer on BALANCED for a mechanical pattern-copy step; ai-reviewer on BALANCED once at T2 and on STRONG once at T3 — no ai-planner, no plan-review agent, no ai-release",
+        "review": "T0/T1: none. T2: one ai-reviewer on the BALANCED model over the diff, after the tests pass. T3: one ai-reviewer on STRONG after review-gate, plus ai-security only when auth, authorization or personal data is touched. Findings fixed as one batch in a `state.py remediate` step; one scoped re-review only when a BLOCKER was fixed",
         "release": "the commit message body: what changed, verification command and result, rollback"
       }
     },
@@ -107,7 +106,6 @@
           "impact_analysis",
           "risk_classification",
           "plan",
-          "plan_review",
           "test",
           "adversarial_review",
           "release_report"
@@ -233,19 +231,19 @@
         "impact_analysis",
         "risk_classification",
         "plan",
-        "plan_review",
         "implementation",
         "test",
         "adversarial_review",
         "release_report"
       ],
-      "plan_review": true,
+      "plan_review": false,
       "human_plan_approval": true,
       "adversarial_review": true,
       "security_review": "when the change touches authentication, authorization or personal data",
-      "release_report": "full",
+      "release_report": "light",
       "human_approval": true,
-      "characterization_tests": "required before changing legacy behaviour"
+      "characterization_tests": "required before changing legacy behaviour",
+      "plan": "plan mode in the session; the human approves the plan before implementation"
     },
     "T4": {
       "label": "critical business or system behaviour",

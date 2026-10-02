@@ -1,4 +1,4 @@
-<!-- generated from risk-tiers.json sha256:6c7b1b9b733f3ec7d8e038e62f484419c5e888cd094f64c1f1471b9cd9bb3fe8 -->
+<!-- generated from risk-tiers.json sha256:84c3815fd46498443568285c8d839257ecb91b6f0639690cbdc38ba382fc349d -->
 <!-- If /ai-status reports this hash as stale, risk-tiers.json changed and this
      mirror did not. The JSON file is the source of truth; update this by hand. -->
 
@@ -12,7 +12,7 @@ three things: who plans it, who reviews it, and whether a human signs it off.
 | **T0** | documentation, comments, translations with no logic | no | no | no | no | no |
 | **T1** | formatting, an isolated admin screen, a label | no | no | no | no | no |
 | **T2** | a normal isolated feature, a new service with limited reach | no | no | yes | no | no |
-| **T3** | shared domain behaviour: orders, workflows, async processing, an important integration | yes | yes | yes | when auth or personal data is touched | yes |
+| **T3** | shared domain behaviour: orders, workflows, async processing, an important integration | no — the human reviews it in plan mode | yes | yes | when auth or personal data is touched | yes |
 | **T4** | payments, accounting, tax, fiscal, authentication, authorization, order state transitions, customer data | yes | yes | yes | yes | yes |
 | **T5** | migration strategy, infrastructure, Kubernetes, production deployment, destructive schema change, cross-system migration | yes | yes | yes | yes | yes |
 
@@ -26,14 +26,15 @@ either way.
 |---|---|
 | T0, T1 | the session, directly; readers on FAST |
 | T2 | BALANCED |
-| T3, T4 | STRONG |
+| T3 | the session plans in plan mode; STRONG reviews the diff |
+| T4 | STRONG |
 | T5 | EXPERT — `ai-expert` |
 
 Which model a tier is comes from the installed plan, per runtime: `state.py profile
 --tier <TIER>` prints it, and `/ai-status` shows all four.
 
 Under Codex an agent's own file outranks the model asked for when it is spawned,
-so the T3/T4 re-runs of `ai-risk` and `ai-planner` use the dedicated
+so the STRONG re-runs of `ai-risk` and `ai-planner` use the dedicated
 `ai-risk-strong` and `ai-planner-strong` agents. Same tier, same trigger.
 
 Report the model that actually ran, not the one that was requested: a rate-limit
@@ -53,13 +54,16 @@ written into the task record with the reason.
 it runs. Every tier keeps its `stages_required`; the profile says which of them
 go to a subagent. The default `solo` profile has two modes:
 
-- **direct** (T0–T2): no pipeline ceremony. The session names the files, edits,
+- **direct** (T0–T3): no pipeline ceremony. The session names the files, edits,
   runs the step's own tests, then the verification command once at the end,
   then the e2e suite once after it, and fixes every failure as one batch. T0/T1 keep no state file at all; T2 is one `state.py quick` call that
   arms the scope guard and one `state.py close` at the end. The only subagents
   are cheap readers (`Explore`, `log-reader` on FAST) and, at T2, one
-  `ai-reviewer` on BALANCED over the diff.
-- **sdlc** (T3–T5): the full pipeline, recorded stage by stage, with the plan,
+  `ai-reviewer` on BALANCED over the diff. T3 is the same path with three
+  additions: the plan is written in plan mode and the human approves it before
+  any edit, characterization tests come first, and the one review is on
+  STRONG. No `ai-planner`, no plan-review agent, no `ai-release`.
+- **sdlc** (T4–T5): the full pipeline, recorded stage by stage, with the plan,
   plan review, adversarial review, security review and release report delegated
   to the STRONG and EXPERT tiers as the table says.
 
@@ -67,7 +71,7 @@ go to a subagent. The default `solo` profile has two modes:
 |---|---|---|
 | T0, T1 | nothing — direct mode, no state file: say which files, edit, verify (T1) | discovery (and the test run at T1) |
 | T2 | the adversarial review, on BALANCED; the plan is three to five lines in the conversation | every stage except implementation |
-| T3 | plan, plan review, adversarial review — on STRONG | every stage except implementation |
+| T3 | the adversarial review, on STRONG; the plan is written in plan mode by the session and approved by the human | every stage except implementation |
 | T4 | plan, plan review, adversarial review, security review, release report | every stage except implementation |
 | T5 | discovery and impact as well; the plan goes to `ai-expert` | every stage except implementation |
 
@@ -134,7 +138,11 @@ the line and never runs the tool it detected.
 
 ## Extra obligations by tier
 
-- **T3 and above**: characterization tests come before any change to legacy behaviour.
+- **T3 and above**: characterization tests come before any change to legacy behaviour,
+  and the plan names the rollback.
+- **T3 is not a small T4.** It runs in direct mode; the delegated plan, the
+  plan-review agent, the security review (unless auth or personal data is
+  touched) and `ai-release` start at T4.
 - **T4**: the release report must have a rollback section and a monitoring section,
   and the plan must state the idempotency and retry behaviour explicitly.
 - **T5**: migration analysis covering locks, table size, duration, deployment
