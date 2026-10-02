@@ -478,4 +478,64 @@ grep -q 'sensors.py' "$BITE/.ai/reports/$BTASK/review-ledger.md" \
     && pass "and what they settled is waiting in the ledger for the reviewer" \
     || fail "the ledger should carry the sensor rows"
 
+echo "== section 12: a remediation step measures only its own fix"
+# Two steps that each fit the per-step budget, together well over it. The fix
+# that follows is one line; it must be measured from where the last step ended,
+# never from the task's base tree.
+REM="$TMP/with space/remediate"
+mkdir -p "$REM/.ai/state" "$REM/.ai/reports" "$REM/.ai/policies" "$REM/src" "$REM/tests"
+R() { python3 "$STATE_PY" --root "$REM" "$@"; }
+RJ() { python3 -c 'import json,sys
+d = json.load(open(sys.argv[1]))
+for part in sys.argv[2].split("."):
+    d = d[int(part)] if isinstance(d, list) else (d or {}).get(part)
+print("" if d is None else d)' "$REM/.ai/state/current.json" "$1"; }
+git init -q "$REM"; git -C "$REM" config user.email t@example.com
+git -C "$REM" config user.name Test
+printf 'a\n' > "$REM/src/a.php"; printf 'b\n' > "$REM/src/b.php"
+git -C "$REM" add -A; git -C "$REM" commit -qm base
+cat > "$REM/.ai/policies/risk-tiers.json" <<'JSON'
+{"version": 3,
+ "diff_budget": {"per_step": {"T2": {"max_lines": 5, "max_files": 5}},
+                 "per_task": {"T2": {"max_lines": 400, "max_files": 15}},
+                 "exclude": [], "unbudgeted_scopes": []},
+ "path_scopes": [{"scope": "tests", "min_tier": "T1", "paths": ["tests/**"]}],
+ "remediation_rounds": 2}
+JSON
+RTASK=$(R init --goal "two halves" --workflow bugfix)
+R risk T2 --note "isolated" >/dev/null
+cat > "$TMP/rem-steps.json" <<'JSON'
+[{ "step_id": "1", "description": "first half", "allowed_files": ["src/a.php"] },
+ { "step_id": "2", "description": "second half", "allowed_files": ["src/b.php"] }]
+JSON
+R plan --ref ".ai/reports/$RTASK/plan.md" --steps "$TMP/rem-steps.json" >/dev/null
+R step 1 >/dev/null; printf 'a\n1\n2\n3\n4\n' > "$REM/src/a.php"; R step-done 1 >/dev/null
+R step 2 >/dev/null; printf 'b\n1\n2\n3\n4\n' > "$REM/src/b.php"; R step-done 2 >/dev/null
+
+R remediate --files "tests/**" --note "one regression" >/dev/null
+[ -n "$(RJ approved_plan.steps.2.tree_before)" ] \
+    && pass "remediate records the tree its step begins with" || fail "R1 should have tree_before"
+printf 'a\n1\n2\n3\nfixed\n' > "$REM/src/a.php"
+OUT=$(R step-done R1 2>&1); RC=$?
+[ $RC -eq 0 ] && pass "a one-line fix after an 8-line task passes its step budget" \
+               || fail "step-done R1 should pass" "$OUT($RC)"
+[ "$(RJ approved_plan.steps.2.diff.lines)" = 2 ] && [ "$(RJ approved_plan.steps.2.diff.files)" = 1 ] \
+    && pass "and it measured only the fix: 1 file, 2 lines" \
+    || fail "R1 should measure 1 file, 2 lines" "$(RJ approved_plan.steps.2.diff)"
+
+# A remediation step written before the fix has no tree_before at all: it falls
+# back to where the last finished step ended, not to the base tree.
+R remediate --files "tests/**" --note "older state.py" >/dev/null
+python3 - "$REM/.ai/state/current.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+d["approved_plan"]["steps"][3].pop("tree_before", None)
+json.dump(d, open(p, "w"))
+PY2
+printf 'b\n1\n2\n3\nfixed\n' > "$REM/src/b.php"
+OUT=$(R step-done R2 2>&1); RC=$?
+[ $RC -eq 0 ] && [ "$(RJ approved_plan.steps.3.diff.lines)" = 2 ] \
+    && pass "an R-step without tree_before measures from the last finished step" \
+    || fail "R2 should fall back to R1's tree_after" "$OUT($RC) $(RJ approved_plan.steps.3.diff)"
+
 summary "sensors"

@@ -925,7 +925,8 @@ def cmd_step_done(args, root):
     # step exactly where it was: in progress, with a way out that keeps the work.
     tier = state.get("risk_tier") or "T2"
     after = safe_sensor(sensors.snapshot_tree, root)
-    before = step.get("tree_before") or state["diff"].get("base_tree")
+    before = step.get("tree_before") or _last_tree_after(state, step) \
+        or state["diff"].get("base_tree")
     elsewhere = [f for other in steps if other is not step
                  for f in (other.get("allowed_files") or [])]
     _policy, measured = measure_diff(root, before, after, tier,
@@ -978,6 +979,22 @@ def cmd_step_done(args, root):
     print("step %s done; remaining: %s" % (args.step_id, ", ".join(remaining) or "none"))
     if not remaining:
         print("last step: run verify_command once, to the end, then e2e_command once")
+
+
+def _last_tree_after(state, step):
+    """Where the last finished step left the tree. A step with no tree_before of
+    its own (a remediation recorded before remediate took one) began there, not
+    at the task's base tree — measuring from the base would charge it with the
+    whole task's diff."""
+    steps = state.get("approved_plan", {}).get("steps", [])
+    by_id = {s["step_id"]: s for s in steps}
+    for step_id in reversed(state.get("completed_steps") or []):
+        done = by_id.get(step_id)
+        if done is not None and done is not step:
+            tree = (done.get("diff") or {}).get("tree_after")
+            if tree:
+                return tree
+    return None
 
 
 def _split_files(text):
@@ -1109,6 +1126,9 @@ def cmd_remediate(args, root):
         "allowed_files": allowed, "forbidden_files": [],
         "forbidden_reason": "not part of this task", "required_tests": [],
         "status": "in_progress",
+        # Taken now, like cmd_step does: the batch is measured from here, not
+        # from the task's base tree, or it carries every finished step's diff.
+        "tree_before": safe_sensor(sensors.snapshot_tree, root),
     }
     steps.append(step)
     state["approved_plan"]["current_step_id"] = step_id
