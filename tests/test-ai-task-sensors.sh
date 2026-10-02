@@ -538,4 +538,68 @@ OUT=$(R step-done R2 2>&1); RC=$?
     && pass "an R-step without tree_before measures from the last finished step" \
     || fail "R2 should fall back to R1's tree_after" "$OUT($RC) $(RJ approved_plan.steps.3.diff)"
 
+echo "== section 13: the fallback is the step that finished last, and a base-tree fallback says so"
+# Step 1 is re-done after step 2: it finished last, though completed_steps
+# still lists it first. A step without tree_before starts where step 1 ended.
+ORD="$TMP/with space/order"
+mkdir -p "$ORD/.ai/state" "$ORD/.ai/reports" "$ORD/.ai/policies" "$ORD/src"
+O() { python3 "$STATE_PY" --root "$ORD" "$@"; }
+OJ() { python3 -c 'import json,sys
+d = json.load(open(sys.argv[1]))
+for part in sys.argv[2].split("."):
+    d = d[int(part)] if isinstance(d, list) else (d or {}).get(part)
+print("" if d is None else d)' "$ORD/.ai/state/current.json" "$1"; }
+git init -q "$ORD"; git -C "$ORD" config user.email t@example.com
+git -C "$ORD" config user.name Test
+printf 'a\n' > "$ORD/src/a.php"; printf 'b\n' > "$ORD/src/b.php"
+git -C "$ORD" add -A; git -C "$ORD" commit -qm base
+cp "$REM/.ai/policies/risk-tiers.json" "$ORD/.ai/policies/risk-tiers.json"
+OTASK=$(O init --goal "order" --workflow bugfix)
+O risk T2 --note "isolated" >/dev/null
+O plan --ref ".ai/reports/$OTASK/plan.md" --steps "$TMP/rem-steps.json" >/dev/null
+O step 1 >/dev/null; printf 'a\n1\n2\n' > "$ORD/src/a.php"; O step-done 1 >/dev/null
+O step 2 >/dev/null; printf 'b\n1\n2\n' > "$ORD/src/b.php"; O step-done 2 >/dev/null
+O step 1 >/dev/null; printf 'a\n1\n2\n3\n4\n' > "$ORD/src/a.php"; O step-done 1 >/dev/null
+O remediate --files "tests/**" --note "legacy shape" >/dev/null
+python3 - "$ORD/.ai/state/current.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+d["approved_plan"]["steps"][2].pop("tree_before", None)
+json.dump(d, open(p, "w"))
+PY2
+printf 'b\n1\nfixed\n' > "$ORD/src/b.php"
+OUT=$(O step-done R1 2>&1); RC=$?
+[ $RC -eq 0 ] && [ "$(OJ approved_plan.steps.2.diff.lines)" = 2 ] \
+    && pass "the fallback is the step that finished last, not the last listed" \
+    || fail "R1 should start where the re-done step 1 ended" "$OUT($RC) $(OJ approved_plan.steps.2.diff)"
+
+# Nothing to start from but the base: measured, and said so.
+BAS="$TMP/with space/base"
+mkdir -p "$BAS/.ai/state" "$BAS/.ai/reports" "$BAS/.ai/policies" "$BAS/src"
+git init -q "$BAS"; git -C "$BAS" config user.email t@example.com
+git -C "$BAS" config user.name Test
+printf 'a\n' > "$BAS/src/a.php"; printf 'b\n' > "$BAS/src/b.php"
+git -C "$BAS" add -A; git -C "$BAS" commit -qm base
+cp "$REM/.ai/policies/risk-tiers.json" "$BAS/.ai/policies/risk-tiers.json"
+BTASK2=$(python3 "$STATE_PY" --root "$BAS" init --goal "base" --workflow bugfix)
+python3 "$STATE_PY" --root "$BAS" risk T2 --note "isolated" >/dev/null
+python3 "$STATE_PY" --root "$BAS" plan --ref ".ai/reports/$BTASK2/plan.md" --steps "$TMP/rem-steps.json" >/dev/null
+printf 'a\nfixed\n' > "$BAS/src/a.php"
+OUT=$(python3 "$STATE_PY" --root "$BAS" step-done 1 2>&1)
+printf '%s' "$OUT" | grep -q "base tree" \
+    && fail "the first step starts at the base tree; nothing to say" "$OUT" \
+    || pass "the first step measured from the base tree prints no note"
+# Step 1 finished, but its tree was never recorded (snapshot unavailable).
+python3 - "$BAS/.ai/state/current.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+d["approved_plan"]["steps"][0]["diff"]["tree_after"] = None
+json.dump(d, open(p, "w"))
+PY2
+printf 'b\nfixed\n' > "$BAS/src/b.php"
+OUT=$(python3 "$STATE_PY" --root "$BAS" step-done 2 2>&1); RC=$?
+[ $RC -eq 0 ] && printf '%s' "$OUT" | grep -q "measured from the task's base tree" \
+    && pass "a later step that falls back to the base tree says so" \
+    || fail "step-done should name the base-tree fallback" "$OUT($RC)"
+
 summary "sensors"

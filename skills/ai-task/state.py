@@ -925,8 +925,9 @@ def cmd_step_done(args, root):
     # step exactly where it was: in progress, with a way out that keeps the work.
     tier = state.get("risk_tier") or "T2"
     after = safe_sensor(sensors.snapshot_tree, root)
-    before = step.get("tree_before") or _last_tree_after(state, step) \
-        or state["diff"].get("base_tree")
+    before = step.get("tree_before") or _last_tree_after(state, step)
+    from_base = not before
+    before = before or state["diff"].get("base_tree")
     elsewhere = [f for other in steps if other is not step
                  for f in (other.get("allowed_files") or [])]
     _policy, measured = measure_diff(root, before, after, tier,
@@ -943,7 +944,8 @@ def cmd_step_done(args, root):
             "should not be — split it:\n  state.py step-split %s --files \"<the part that is "
             "its own step>\""
             % (args.step_id, "; ".join(measured["over"]), args.step_id), 6)
-    step["diff"] = {"tree_after": after,
+    seq = 1 + max([_seq(s.get("diff")) for s in steps] or [0])
+    step["diff"] = {"tree_after": after, "seq": seq,
                     "paths": [path for path, _l, _n, _t in measured.get("per_file", [])],
                     "files": measured["files"],
                     "added": measured["added"], "deleted": measured["deleted"],
@@ -969,6 +971,9 @@ def cmd_step_done(args, root):
     else:
         print(budget_line("step %s diff" % args.step_id, measured)
               + (" — over: %s" % "; ".join(measured["over"]) if measured["over"] else " — ok"))
+    if from_base and measured["status"] != "unavailable" and completed_before(state, step):
+        print("step %s measured from the task's base tree: it has no tree_before and no "
+              "finished step recorded where the tree stood" % args.step_id)
     if task_measured["status"] != "unavailable":
         print(budget_line("task diff", task_measured)
               + ("; rescored %s" % scored["tier"] if scored else ""))
@@ -985,16 +990,35 @@ def _last_tree_after(state, step):
     """Where the last finished step left the tree. A step with no tree_before of
     its own (a remediation recorded before remediate took one) began there, not
     at the task's base tree — measuring from the base would charge it with the
-    whole task's diff."""
+    whole task's diff. "Last" is by when step-done ran (diff.seq): a step done
+    again keeps its first place in completed_steps. Steps recorded before seq
+    existed fall back to that list's order, and rank below any that have one."""
     steps = state.get("approved_plan", {}).get("steps", [])
     by_id = {s["step_id"]: s for s in steps}
-    for step_id in reversed(state.get("completed_steps") or []):
+    best, best_key = None, None
+    for i, step_id in enumerate(state.get("completed_steps") or []):
         done = by_id.get(step_id)
-        if done is not None and done is not step:
-            tree = (done.get("diff") or {}).get("tree_after")
-            if tree:
-                return tree
-    return None
+        if done is None or done is step:
+            continue
+        diff = done.get("diff") or {}
+        if not diff.get("tree_after"):
+            continue
+        key = (_seq(diff), i)
+        if best_key is None or key > best_key:
+            best, best_key = diff["tree_after"], key
+    return best
+
+
+def _seq(diff):
+    """A step's finishing order; 0 for one recorded before it existed, or hand-edited."""
+    seq = (diff or {}).get("seq")
+    return seq if isinstance(seq, int) and not isinstance(seq, bool) else 0
+
+
+def completed_before(state, step):
+    """Whether any other step had finished — the case where measuring from the
+    base tree is a fallback worth naming rather than the obvious start."""
+    return any(sid != step["step_id"] for sid in state.get("completed_steps") or [])
 
 
 def _split_files(text):
