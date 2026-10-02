@@ -50,3 +50,27 @@ B. CI matrix only; packages built manually by the maintainer
 C. Manual testing on each OS before release
 X. Other — answer as `X: <text>`
 [Answer]: A — by vanssa via prose at 2026-10-02T18:41:51Z
+
+## Q7. Point 5 ('sdlc-intent to be used more often'): what should change?
+asked: 2026-10-02T18:48:58Z · stage: intent
+A. The agent proactively suggests /sdlc-intent when a request is vague or large (e.g. /ai-task on an unclear request routes to an intent first)
+B. Make the intent interaction lighter (fewer questions, native pickers) so people choose to use it more
+C. Both A and B (recommended)
+D. Opposite — reduce how often sdlc-intent is needed
+X. Other — answer as `X: <text>`
+[Answer]: C — by vanssa via prose at 2026-10-02T18:50:45Z
+
+## Q8. Multi-machine/multi-person: what is the goal for task data (.ai/reports, .ai/state, docs/sdlc)?
+asked: 2026-10-02T18:58:54Z · stage: intent
+A. Shared via git but conflict-free by construction (unique task ids per machine/person, no shared mutable files)
+B. Local only (git-ignored); nothing is shared between machines
+C. Both, as a per-project mode chosen at init and switchable later: 'shared' (A) or 'local' (B) (recommended)
+X. Other — answer as `X: <text>`
+[Answer]: A — by vanssa via prose at 2026-10-02T18:59:43Z
+
+## Q9. Your request also asks for an option to make the project folders git-ignored/local, for new and existing projects. With 8A as the default, is that option still wanted?
+asked: 2026-10-02T18:59:43Z · stage: intent
+A. Yes — shared (8A) is the default; a 'local' opt-in git-ignores the folders, for new projects and by converting existing ones (recommended)
+B. No — shared (8A) only; drop the local-only option
+X. Other — answer as `X: <text>`
+[Answer]: A — by vanssa via prose at 2026-10-02T19:00:25Z
