@@ -478,4 +478,128 @@ grep -q 'sensors.py' "$BITE/.ai/reports/$BTASK/review-ledger.md" \
     && pass "and what they settled is waiting in the ledger for the reviewer" \
     || fail "the ledger should carry the sensor rows"
 
+echo "== section 12: a remediation step measures only its own fix"
+# Two steps that each fit the per-step budget, together well over it. The fix
+# that follows is one line; it must be measured from where the last step ended,
+# never from the task's base tree.
+REM="$TMP/with space/remediate"
+mkdir -p "$REM/.ai/state" "$REM/.ai/reports" "$REM/.ai/policies" "$REM/src" "$REM/tests"
+R() { python3 "$STATE_PY" --root "$REM" "$@"; }
+RJ() { python3 -c 'import json,sys
+d = json.load(open(sys.argv[1]))
+for part in sys.argv[2].split("."):
+    d = d[int(part)] if isinstance(d, list) else (d or {}).get(part)
+print("" if d is None else d)' "$REM/.ai/state/current.json" "$1"; }
+git init -q "$REM"; git -C "$REM" config user.email t@example.com
+git -C "$REM" config user.name Test
+printf 'a\n' > "$REM/src/a.php"; printf 'b\n' > "$REM/src/b.php"
+git -C "$REM" add -A; git -C "$REM" commit -qm base
+cat > "$REM/.ai/policies/risk-tiers.json" <<'JSON'
+{"version": 3,
+ "diff_budget": {"per_step": {"T2": {"max_lines": 5, "max_files": 5}},
+                 "per_task": {"T2": {"max_lines": 400, "max_files": 15}},
+                 "exclude": [], "unbudgeted_scopes": []},
+ "path_scopes": [{"scope": "tests", "min_tier": "T1", "paths": ["tests/**"]}],
+ "remediation_rounds": 2}
+JSON
+RTASK=$(R init --goal "two halves" --workflow bugfix)
+R risk T2 --note "isolated" >/dev/null
+cat > "$TMP/rem-steps.json" <<'JSON'
+[{ "step_id": "1", "description": "first half", "allowed_files": ["src/a.php"] },
+ { "step_id": "2", "description": "second half", "allowed_files": ["src/b.php"] }]
+JSON
+R plan --ref ".ai/reports/$RTASK/plan.md" --steps "$TMP/rem-steps.json" >/dev/null
+R step 1 >/dev/null; printf 'a\n1\n2\n3\n4\n' > "$REM/src/a.php"; R step-done 1 >/dev/null
+R step 2 >/dev/null; printf 'b\n1\n2\n3\n4\n' > "$REM/src/b.php"; R step-done 2 >/dev/null
+
+R remediate --files "tests/**" --note "one regression" >/dev/null
+[ -n "$(RJ approved_plan.steps.2.tree_before)" ] \
+    && pass "remediate records the tree its step begins with" || fail "R1 should have tree_before"
+printf 'a\n1\n2\n3\nfixed\n' > "$REM/src/a.php"
+OUT=$(R step-done R1 2>&1); RC=$?
+[ $RC -eq 0 ] && pass "a one-line fix after an 8-line task passes its step budget" \
+               || fail "step-done R1 should pass" "$OUT($RC)"
+[ "$(RJ approved_plan.steps.2.diff.lines)" = 2 ] && [ "$(RJ approved_plan.steps.2.diff.files)" = 1 ] \
+    && pass "and it measured only the fix: 1 file, 2 lines" \
+    || fail "R1 should measure 1 file, 2 lines" "$(RJ approved_plan.steps.2.diff)"
+
+# A remediation step written before the fix has no tree_before at all: it falls
+# back to where the last finished step ended, not to the base tree.
+R remediate --files "tests/**" --note "older state.py" >/dev/null
+python3 - "$REM/.ai/state/current.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+d["approved_plan"]["steps"][3].pop("tree_before", None)
+json.dump(d, open(p, "w"))
+PY2
+printf 'b\n1\n2\n3\nfixed\n' > "$REM/src/b.php"
+OUT=$(R step-done R2 2>&1); RC=$?
+[ $RC -eq 0 ] && [ "$(RJ approved_plan.steps.3.diff.lines)" = 2 ] \
+    && pass "an R-step without tree_before measures from the last finished step" \
+    || fail "R2 should fall back to R1's tree_after" "$OUT($RC) $(RJ approved_plan.steps.3.diff)"
+
+echo "== section 13: the fallback is the step that finished last, and a base-tree fallback says so"
+# Step 1 is re-done after step 2: it finished last, though completed_steps
+# still lists it first. A step without tree_before starts where step 1 ended.
+ORD="$TMP/with space/order"
+mkdir -p "$ORD/.ai/state" "$ORD/.ai/reports" "$ORD/.ai/policies" "$ORD/src"
+O() { python3 "$STATE_PY" --root "$ORD" "$@"; }
+OJ() { python3 -c 'import json,sys
+d = json.load(open(sys.argv[1]))
+for part in sys.argv[2].split("."):
+    d = d[int(part)] if isinstance(d, list) else (d or {}).get(part)
+print("" if d is None else d)' "$ORD/.ai/state/current.json" "$1"; }
+git init -q "$ORD"; git -C "$ORD" config user.email t@example.com
+git -C "$ORD" config user.name Test
+printf 'a\n' > "$ORD/src/a.php"; printf 'b\n' > "$ORD/src/b.php"
+git -C "$ORD" add -A; git -C "$ORD" commit -qm base
+cp "$REM/.ai/policies/risk-tiers.json" "$ORD/.ai/policies/risk-tiers.json"
+OTASK=$(O init --goal "order" --workflow bugfix)
+O risk T2 --note "isolated" >/dev/null
+O plan --ref ".ai/reports/$OTASK/plan.md" --steps "$TMP/rem-steps.json" >/dev/null
+O step 1 >/dev/null; printf 'a\n1\n2\n' > "$ORD/src/a.php"; O step-done 1 >/dev/null
+O step 2 >/dev/null; printf 'b\n1\n2\n' > "$ORD/src/b.php"; O step-done 2 >/dev/null
+O step 1 >/dev/null; printf 'a\n1\n2\n3\n4\n' > "$ORD/src/a.php"; O step-done 1 >/dev/null
+O remediate --files "tests/**" --note "legacy shape" >/dev/null
+python3 - "$ORD/.ai/state/current.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+d["approved_plan"]["steps"][2].pop("tree_before", None)
+json.dump(d, open(p, "w"))
+PY2
+printf 'b\n1\nfixed\n' > "$ORD/src/b.php"
+OUT=$(O step-done R1 2>&1); RC=$?
+[ $RC -eq 0 ] && [ "$(OJ approved_plan.steps.2.diff.lines)" = 2 ] \
+    && pass "the fallback is the step that finished last, not the last listed" \
+    || fail "R1 should start where the re-done step 1 ended" "$OUT($RC) $(OJ approved_plan.steps.2.diff)"
+
+# Nothing to start from but the base: measured, and said so.
+BAS="$TMP/with space/base"
+mkdir -p "$BAS/.ai/state" "$BAS/.ai/reports" "$BAS/.ai/policies" "$BAS/src"
+git init -q "$BAS"; git -C "$BAS" config user.email t@example.com
+git -C "$BAS" config user.name Test
+printf 'a\n' > "$BAS/src/a.php"; printf 'b\n' > "$BAS/src/b.php"
+git -C "$BAS" add -A; git -C "$BAS" commit -qm base
+cp "$REM/.ai/policies/risk-tiers.json" "$BAS/.ai/policies/risk-tiers.json"
+BTASK2=$(python3 "$STATE_PY" --root "$BAS" init --goal "base" --workflow bugfix)
+python3 "$STATE_PY" --root "$BAS" risk T2 --note "isolated" >/dev/null
+python3 "$STATE_PY" --root "$BAS" plan --ref ".ai/reports/$BTASK2/plan.md" --steps "$TMP/rem-steps.json" >/dev/null
+printf 'a\nfixed\n' > "$BAS/src/a.php"
+OUT=$(python3 "$STATE_PY" --root "$BAS" step-done 1 2>&1)
+printf '%s' "$OUT" | grep -q "base tree" \
+    && fail "the first step starts at the base tree; nothing to say" "$OUT" \
+    || pass "the first step measured from the base tree prints no note"
+# Step 1 finished, but its tree was never recorded (snapshot unavailable).
+python3 - "$BAS/.ai/state/current.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+d["approved_plan"]["steps"][0]["diff"]["tree_after"] = None
+json.dump(d, open(p, "w"))
+PY2
+printf 'b\nfixed\n' > "$BAS/src/b.php"
+OUT=$(python3 "$STATE_PY" --root "$BAS" step-done 2 2>&1); RC=$?
+[ $RC -eq 0 ] && printf '%s' "$OUT" | grep -q "measured from the task's base tree" \
+    && pass "a later step that falls back to the base tree says so" \
+    || fail "step-done should name the base-tree fallback" "$OUT($RC)"
+
 summary "sensors"

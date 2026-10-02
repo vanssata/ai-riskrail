@@ -56,6 +56,35 @@ wrote "$TMP/both/codex" && pass "auto installed Codex" || fail "Codex missing" "
 printf '%s' "$out" | grep -c >/dev/null 'Done (Claude Code)' && pass "the Claude summary is printed" || fail "no Claude summary" "$out"
 printf '%s' "$out" | grep -c >/dev/null 'Done (Codex)' && pass "the Codex summary is printed" || fail "no Codex summary" "$out"
 
+echo "== a leftover directory is not an installed runtime"
+stub claude
+mkdir -p "$TMP/dir-only/codex"
+out=$(run dir-only --target auto --plan max --fable yes </dev/null)
+wrote "$TMP/dir-only/claude" && pass "auto installed Claude" || fail "Claude should have been installed"
+if wrote "$TMP/dir-only/codex"; then fail "a codex directory without a codex executable must be left alone"
+else pass "the Codex directory is left untouched"; fi
+if printf '%s' "$out" | grep -q 'codex plan\|ChatGPT plan'; then fail "no Codex plan may be asked for or chosen"
+else pass "no Codex plan is asked for"; fi
+printf '%s' "$out" | grep -c >/dev/null 'no codex on PATH — skipped' \
+    && pass "the skip is reported with its reason" || fail "expected the skip note" "$(printf '%s' "$out" | head -3)"
+printf '%s' "$out" | grep -c >/dev/null -- '--target both' \
+    && pass "the note names the override" || fail "the note should suggest --target both"
+
+# A path with a space is one path, in the note as everywhere else.
+stub claude
+mkdir -p "$TMP/dir only spaced/codex"
+out=$(run "dir only spaced" --target auto --plan max --fable yes </dev/null)
+printf '%s' "$out" | grep -qF "codex: $TMP/dir only spaced/codex found but no codex on PATH" \
+    && pass "the note keeps a path with spaces whole" || fail "the note split the path" "$(printf '%s' "$out" | head -3)"
+
+stub
+mkdir -p "$TMP/dirs-only/claude" "$TMP/dirs-only/codex"
+out=$(run dirs-only --target auto </dev/null); rc=$?
+[ $rc -ne 0 ] && printf '%s' "$out" | grep -q 'No supported runtime' \
+    && pass "directories alone are no runtime: it stops and says so" || fail "expected 'No supported runtime'" "$(printf '%s' "$out" | head -3)"
+if printf '%s' "$out" | grep -q 'Enter plan\|codex plan\|ChatGPT plan'; then fail "nothing may be asked for"
+else pass "no plan is asked for"; fi
+
 echo "== neither present"
 stub
 out=$(run neither --target auto); rc=$?
@@ -84,15 +113,6 @@ echo "== an unknown target is rejected"
 stub claude codex
 out=$(run bad-target --target everything); rc=$?
 [ $rc -ne 0 ] && pass "--target everything is rejected" || fail "unknown target should fail" "$out"
-
-echo "== an existing config directory counts as a present runtime"
-stub
-mkdir -p "$TMP/dir-detect/codex"
-out=$(env -i HOME="$TMP/dir-detect/home" PATH="$BIN:$BASE_PATH" \
-      CLAUDE_DIR="$TMP/dir-detect/claude" CODEX_DIR="$TMP/dir-detect/codex" \
-      bash "$INSTALL" --target auto 2>&1)
-wrote "$TMP/dir-detect/codex" && pass "an existing ~/.codex is enough to detect Codex" || fail "should have detected Codex from its directory" "$out"
-wrote "$TMP/dir-detect/claude" && fail "Claude must stay undetected" || pass "Claude stays undetected"
 
 echo "== dry run writes nothing for either runtime"
 stub claude codex
