@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-agentic installer (Claude Code and/or Codex).
+# RiskRail (ai-riskrail) installer (Claude Code and/or Codex).
 #   ./install.sh [--target auto|claude|codex|both] [--plan pro|team-pro|team-max|max|max20|balanced-max]
 #                [--fable auto|yes|no] [--codex-plan plus|pro|balanced-max] [--dry-run]
 # --target defaults to auto: each runtime is installed only if its executable is on PATH.
@@ -814,7 +814,8 @@ SUM
 # on Sol at high with six agent threads and Astra at xhigh for EXPERT; Plus
 # (profiles/codex-plus.json) has a smaller usage window, so the session runs Sol
 # at medium, three threads, and Astra at high with xhigh off. The plan is read
-# from the ChatGPT login: the JWT in ~/.codex/auth.json carries chatgpt_plan_type.
+# from the ChatGPT login: the id_token in ~/.codex/auth.json carries chatgpt_plan_type.
+# The access_token is a credential and is never read, even when it carries the claim too.
 codex_detect_plan() {
   python3 - "$CODEX_DIR/auth.json" "${HOME:-/nonexistent}/.codex/auth.json" <<'PY'
 import base64, json, sys
@@ -832,10 +833,9 @@ for path in sys.argv[1:]:
     except (OSError, ValueError):
         continue
     tokens = data.get("tokens") or {}
-    for key in ("id_token", "access_token"):
-        plan = claim(tokens.get(key) or "")
-        if plan:
-            print(plan.lower()); sys.exit(0)
+    plan = claim(tokens.get("id_token") or "")
+    if plan:
+        print(plan.lower()); sys.exit(0)
 print("")
 PY
 }

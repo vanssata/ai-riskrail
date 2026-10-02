@@ -58,6 +58,11 @@ printf '{"auth_mode":"chatgpt","tokens":{"id_token":"%s"}}' "$jwt" > "$HOME_P/.c
 out=$(HOME="$HOME_P" CODEX_DIR="$HOME_P/.codex" bash "$INSTALL" --target codex --dry-run 2>&1 </dev/null)
 printf '%s' "$out" | grep -q 'detected codex plan: plus' && pass "chatgpt_plan_type=plus is detected" || fail "plus should be detected from auth.json" "$out"
 printf '%s' "$out" | grep -q 'plan=plus (Plus)' && pass "the detected plan selects the plus profile" || fail "detected plus should select the plus profile" "$out"
+HOME_A="$TMP/home-access"; mkdir -p "$HOME_A/.codex"
+printf '{"auth_mode":"chatgpt","tokens":{"access_token":"%s"}}' "$jwt" > "$HOME_A/.codex/auth.json"
+out=$(HOME="$HOME_A" CODEX_DIR="$HOME_A/.codex" bash "$INSTALL" --target codex --dry-run 2>&1 </dev/null)
+printf '%s' "$out" | grep -q 'detected codex plan: plus' && fail "the access_token must never be read" "$out" || pass "a plan claim in the access_token alone is not read"
+printf '%s' "$out" | grep -q 'plan=pro (Pro)' && pass "with only an access_token the pro profile is assumed" || fail "only an access_token should fall back to pro" "$out"
 
 echo "== real install"
 out=$(CODEX_DIR="$DIR" bash "$INSTALL" --target codex 2>&1); rc=$?

@@ -186,3 +186,11 @@ A. Yes: package 3 becomes a small runner that runs bash and Python suites side b
 B. No: the order stays as it is
 X. Other — answer as `X: <text>`
 [Answer]: A — by vanssa via picker at 2026-10-02T20:56:46Z
+
+## Q23. Under which name is the module published, and what does its marketplace entry show?
+asked: 2026-10-02T23:32:09Z · stage: intent
+context: Open questions 1 and 19; code.claude.com/docs/en/legal-and-compliance: no Claude Code or Anthropic name in a product name; the GitHub repository was renamed to vanssata/ai-riskrail on 2026-10-03
+A. ai-riskrail everywhere (repository, plugin, PyPI, npm); the display name is RiskRail (recommended)
+B. claude-agentic, as today
+X. Other — answer as `X: <text>`
+[Answer]: A — by vanssa via prose at 2026-10-02T23:32:13Z

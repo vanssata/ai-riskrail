@@ -401,6 +401,14 @@
   shown is built from the install's own record.
 - The module never updates itself. Updating is a human action, shown in the human-command format.
 - The update notice is for the human. It does not add to the always-loaded instructions.
+- No name the module publishes or shows — product, display name, plugin `name`, package,
+  repository — contains "Claude", "Anthropic", "Codex" or "OpenAI" (Q23). The runtimes are named
+  only to say what the module works with ("for Claude Code and Codex"):
+  code.claude.com/docs/en/legal-and-compliance does not allow "the Claude Code or Anthropic names
+  or logos as part of your own product, feature, or company name". Paths a runtime mandates
+  (`.codex-plugin/`, `.claude-plugin/`) are exempt, and so are internal identifiers until WP6
+  renames them (the install directory, the markers, the cache directory, the `claude_agentic`
+  key of the profiles).
 
 ## Out of scope
 
@@ -434,13 +442,14 @@ Each package runs `/sdlc-spec` → `/sdlc-plan` → `/ai-task` on its own; specs
 | WP | Package | Main files | Tier | Depends on | Status |
 |---|---|---|---|---|---|
 | 1 | Shared OS module and the guards in Python (refactoring) | the new shared module; `hooks/ai-git-guard.sh`, `hooks/ai-path-guard.sh`, `hooks/ai-scope-guard.sh` (they become exec shims, so the registered hook entries stay as they are: H1 of the WP1 spec), `hooks/lib/ai-hook-common.sh`; `install.sh` (the hook list); `docs/hook-performance.md`. Runs as eight tasks, WP1.1 to WP1.8 (`docs/sdlc/plans/os-independent-installer-packaging-wp1-guards-in-python.md`) | T3 (estimate), with a security review whatever the tier | — | open |
+| 1a | The public name and the terms of the runtimes | the name `ai-riskrail`, display name RiskRail (Q23): `.codex-plugin/plugin.json`; the title, the links and two lines of `README.md` (not affiliated with or endorsed by Anthropic or OpenAI; CI and team use take an API key or a Team/Enterprise plan, not a personal Pro/Max or ChatGPT login); the titles and links in `CONTRIBUTING.md` and `SECURITY.md`; the header of `install.sh`, which reads only the `id_token` of `~/.codex/auth.json`, never the `access_token`; `tests/test-codex-install.sh`. Runs between WP1.1 and WP1.2, as its own task. Left to WP6: internal identifiers (the guard characterization's `golden.txt` carries them and is WP1's oracle) and the old name in `CLAUDE.md`, `docs/sdlc/constitution.md`, `docs/getting-started.md`, `docs/hook-performance.md` and `docs/ai-sdlc-adoption-plan.md` | T2 | — | done |
 | 2 | Installer, scaffolds and launcher in Python (refactoring) | the new installer; `install.sh` as a wrapper; `scripts/*.py`; `hooks/project-scaffold.sh`; `skills/ai-init/scaffold-ai.sh`; `bin/claude-1m` | T3 (estimate) | 1 | open |
 | 3a | Test runner for both kinds | a Python test runner that `tests/run-all.sh` and the verify command call beside the bash suites; `.ai/policies/testing.md`; `CONTRIBUTING.md` | T3 (path scope: `.ai/policies/**`) | — | open |
 | 3b | Port of the 25 suites to Python (refactoring) | `tests/*.sh`, `tests/lib.sh`, `tests/run-all.sh`; the tool list in `.ai/policies/testing.md` | T3 (path scope: `.ai/policies/**`) | 1, 2, 3a | open |
 | 4a | Guards proven at install and at run time | the guard self-test in the installer and in `/ai-status`; the all-or-nothing install; the proof that the runtime calls the guards (the guards, `skills/ai-task/state.py`); the manual check in `.ai/policies/release.md` and `.ai/templates/release-report.md`; the switch of the registered hook command lines in `settings.common.json` and `codex/hooks.json` to the Python guards; the upgrade of existing entries without duplicates and the removal of stale installed files (O30), both moved here from WP1 by H1 | T3 (path scope: `.ai/policies/**`), with a security review | 1, 2, 3a | open |
 | 4b | Works on every supported environment | the Python 3.11 check; `.gitattributes`; UTF-8 for payloads, output and files; path rules in the guards; `skills/ai-task/state.py`, `sensors.py` and the Python hooks (locks, identity, terminal check, the shell for project commands); `CLAUDE_CONFIG_DIR` and `CODEX_HOME`; `--uninstall`; `.github/workflows/tests.yml` as a matrix | T5 (path scope: `.github/workflows/**`) | 1, 2, 3a, 4a | open |
 | 5 | Interactive installer | the installer's prompts and flags; the install section of `README.md` | T2 (estimate) | 2, 4b | open |
-| 6 | One package, three channels | package-relative lookup in `skills/*/SKILL.md` and the hooks; the single version source and its drift test; `.claude-plugin/plugin.json` and the marketplace manifest; the Codex plugin and marketplace manifest; the setup skill; `pyproject.toml`; `package.json` and its launcher | T3 (path scope: `pyproject.toml`, `package.json`) | 2 | open |
+| 6 | One package, three channels | package-relative lookup in `skills/*/SKILL.md` and the hooks; the single version source and its drift test; `.claude-plugin/plugin.json` and the marketplace manifest; the Codex plugin and marketplace manifest; the setup skill; `pyproject.toml`; `package.json` and its launcher; the internal name moves to `ai-riskrail` (the install directory `<home>/claude-agentic/`, the managed-block markers `claude-agentic:start`, `:end` and `:rule:*`, the cache directory `~/.cache/claude-agentic/`), while the installer and `/project-update` still read the old name and migrate it, never silently (the principle requirement 27 sets for task records, applied to these identifiers); the PyPI, npm and marketplace names are `ai-riskrail` from the first publish (Q23) | T3 (path scope: `pyproject.toml`, `package.json`) | 1a, 2 | open |
 | 7 | Standalone skill zips and the release job | the zip builder; self-contained `sdlc-intent`, `sdlc-spec` and `sdlc-plan`; a new release workflow that also builds the PyPI and npm packages; `generator-generic-ossf-slsa3-publish.yml` | T5 (path scope: `.github/workflows/**`) | 6 | open |
 | 8 | In-session interaction | `skills/*/SKILL.md` (picker rendering, the human-command block, the rule that proposes `/sdlc-intent`, the lighter brainstorm); `instructions/stub.md` and the block templates; the test for the human-command block | T3 (estimate) | 3a | open |
 | 9 | Records without conflicts | `skills/ai-task/state.py` (ids, the version check); `sensors.py` (nothing at the top of `.ai/reports/`); `skills/project-update/adopt.py` (report ids); a schema migration; the two-machine test | T5 (path scope: `**/migrations/**`) | 3a | open |
@@ -478,6 +487,7 @@ when the task starts. A spec may split a package further.
 - **An installed copy never learns that a newer version exists. How does it tell its user?** — On by default: at most once a day, at session start, the copy looks up the latest version and shows the human one line with the exact update command for the channel it came from; /ai-status shows the same on demand; one setting turns the lookup off; the copy never updates itself *(Q20, by vanssa via picker at 2026-10-02T20:49:05Z)*
 - **A second review found seven gaps in what the intent promises. Which of them enter the intent?** — All seven *(Q21, by vanssa via picker at 2026-10-02T20:56:46Z)*
 - **Three refactorings come before anything a user can see, and the port of the 25 suites sits on the path of packages 4 and 9. Is package 3 re-cut?** — Yes: package 3 becomes a small runner that runs bash and Python suites side by side, followed by the port itself; packages 4, 8 and 9 write their new tests in Python from the start and wait only for the runner *(Q22, by vanssa via picker at 2026-10-02T20:56:46Z)*
+- **Under which name is the module published, and what does its marketplace entry show?** — `ai-riskrail` everywhere (repository, plugin, PyPI, npm); the display name is RiskRail. The GitHub repository was renamed to `vanssata/ai-riskrail` on 2026-10-02 (UTC) *(Q23, by vanssa via prose at 2026-10-02T23:32:13Z)*
 
 Three notes on the wording above:
 
@@ -488,7 +498,7 @@ Three notes on the wording above:
 
 ## Open questions
 
-1. **(blocking for WP6 and WP7)** What exactly does each target accept today? The spec must cite
+1. **(blocking for WP6 and WP7; the plugin name is answered by Q23)** What exactly does each target accept today? The spec must cite
    current documentation for every line. A documentation search on 2026-10-02 reported the
    following, and none of it has been verified yet:
    - Claude Code plugin: `.claude-plugin/plugin.json` plus `.claude-plugin/marketplace.json`; a
@@ -506,8 +516,8 @@ Three notes on the wording above:
      `~/.codex/skills` today.
 
    Still unknown: the size and file limits of claude.ai and the Claude API; whether extra
-   frontmatter keys (`argument-hint`) are accepted; whether `claude-agentic` is an acceptable
-   plugin name.
+   frontmatter keys (`argument-hint`) are accepted. Whether `claude-agentic` is an acceptable
+   plugin name is answered: it is not, and the name is `ai-riskrail` (Q23).
 2. **(blocking for WP6)** How does the plugin carry the whole package while exposing only the
    setup skill? A `skills/` directory at the plugin root is discovered as plugin skills, which
    would expose `ai-task` without guards. And how does the setup command find the package when
@@ -562,10 +572,8 @@ Three notes on the wording above:
 18. Do records name the person (the git identity) as well as the OS login, so that journals
     merged from several people stay attributable? `state.py` takes the name from `USER` today
     (`:2638`), which Git Bash does not always set.
-19. **(blocking for WP6)** Under which name is the package published? `claude-agentic` and
-    `claude-agentic-sdlc` were both unregistered on npm and on PyPI on 2026-10-02. The name should
-    be the same in both registries, and the doubt in question 1 about "claude" in a name applies
-    here too.
+19. **Answered (Q23).** The package is published as `ai-riskrail` in both registries; the name
+    was unregistered on npm and on PyPI on 2026-10-02 (UTC).
 20. **(blocking for WP6)** `pipx run`, `uvx` and `npx` run the installer from a temporary
     environment. Which interpreter do the registered hook commands use, so that they keep working
     after that environment is gone? And what does the npm launcher say when it finds no

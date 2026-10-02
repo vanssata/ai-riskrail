@@ -12,7 +12,7 @@ against an older version.
 
 ## What counts as a vulnerability
 
-claude-agentic installs hooks, guards and routing rules into Claude Code and
+RiskRail installs hooks, guards and routing rules into Claude Code and
 Codex. These are in scope:
 
 - a guard (`ai-path-guard`, `ai-scope-guard`, `ai-git-guard`) letting through a case it is documented to block, for example reading
@@ -43,7 +43,7 @@ says is welcome.
 **Do not open a public issue or pull request.**
 
 Report it privately through GitHub:
-[Report a vulnerability](https://github.com/vanssata/claude-agentic-sdlc-module/security/advisories/new).
+[Report a vulnerability](https://github.com/vanssata/ai-riskrail/security/advisories/new).
 
 Include:
 

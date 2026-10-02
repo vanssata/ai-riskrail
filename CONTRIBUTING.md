@@ -1,4 +1,4 @@
-# Contributing to claude-agentic
+# Contributing to RiskRail
 
 Thanks for helping. This plugin decides what agents may do on other people's
 machines and in their repositories, so a change is judged first by whether it
@@ -18,8 +18,8 @@ You need `bash`, `git`, `jq` and Python 3.11 or newer (the scripts import
 `tomllib`). Nothing else is installed for development.
 
 ```bash
-git clone https://github.com/vanssata/claude-agentic-sdlc-module.git
-cd claude-agentic-sdlc-module
+git clone https://github.com/vanssata/ai-riskrail.git
+cd ai-riskrail
 ./install.sh --dry-run    # shows what an install would write, writes nothing
 ```
 

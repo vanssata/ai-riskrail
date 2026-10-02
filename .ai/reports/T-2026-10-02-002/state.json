@@ -1,0 +1,293 @@
+{
+  "task_id": "T-2026-10-02-002",
+  "goal": "WP1a: public name ai-riskrail (display RiskRail), compliance lines in README, id_token-only Codex plan detection, intent amended",
+  "workflow": "feature",
+  "risk_tier": "T2",
+  "current_stage": "done",
+  "affected_modules": [],
+  "context_summary_ref": null,
+  "approved_plan": {
+    "ref": "inline",
+    "current_step_id": null,
+    "steps": [
+      {
+        "step_id": "1",
+        "description": "WP1a: public name ai-riskrail (display RiskRail), compliance lines in README, id_token-only Codex plan detection, intent amended",
+        "allowed_files": [
+          "docs/sdlc/intent/os-independent-installer-packaging.md",
+          "docs/sdlc/intent/os-independent-installer-packaging.questions.md",
+          ".codex-plugin/plugin.json",
+          "README.md",
+          "CONTRIBUTING.md",
+          "SECURITY.md",
+          "install.sh",
+          "tests/test-codex-install.sh"
+        ],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this task",
+        "required_tests": [],
+        "status": "done",
+        "kind": "implementation",
+        "tree_before": null,
+        "diff": {
+          "tree_after": "5b34d928c43738b1f39ab503797e87adeaedd62c",
+          "paths": [
+            ".codex-plugin/plugin.json",
+            "install.sh",
+            "tests/test-codex-install.sh"
+          ],
+          "files": 3,
+          "added": 12,
+          "deleted": 7,
+          "lines": 19,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      },
+      {
+        "step_id": "R1",
+        "description": "review: 3 MEDIUM + 3 LOW, wording only: old name in CONTRIBUTING/SECURITY/install.sh titles; constraint scoped to published names; OQ1 header; CI line placement; one time basis; req 27 cite",
+        "allowed_files": [
+          "docs/sdlc/intent/os-independent-installer-packaging.md",
+          "docs/sdlc/intent/os-independent-installer-packaging.questions.md",
+          ".codex-plugin/plugin.json",
+          "README.md",
+          "CONTRIBUTING.md",
+          "SECURITY.md",
+          "install.sh",
+          "tests/test-codex-install.sh"
+        ],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this task",
+        "required_tests": [],
+        "status": "done",
+        "kind": "remediation",
+        "tree_before": null,
+        "diff": {
+          "tree_after": "bcddc3401a0b9d1c73d3034e0d6b055ce14e85b2",
+          "paths": [
+            ".codex-plugin/plugin.json",
+            "install.sh",
+            "tests/test-codex-install.sh"
+          ],
+          "files": 3,
+          "added": 13,
+          "deleted": 8,
+          "lines": 21,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      }
+    ]
+  },
+  "completed_steps": [
+    "1",
+    "R1"
+  ],
+  "test_status": "passing",
+  "e2e_status": "passing",
+  "review_status": "passed",
+  "security_status": "not_started",
+  "open_risks": [],
+  "next_action": "none — task closed",
+  "human_approval": {
+    "required": true,
+    "granted": false,
+    "granted_by": null,
+    "granted_at": null,
+    "requested_at": null,
+    "gate_id": null,
+    "requested_session": null,
+    "rejected_at": null,
+    "via": null,
+    "unattended": false
+  },
+  "created_at": "2026-10-02T23:32:00Z",
+  "updated_at": "2026-10-02T23:45:12Z",
+  "history": [
+    {
+      "at": "2026-10-02T23:32:00Z",
+      "event": "task_started",
+      "detail": "WP1a: public name ai-riskrail (display RiskRail), compliance lines in README, id_token-only Codex plan detection, intent amended (feature)"
+    },
+    {
+      "at": "2026-10-02T23:32:00Z",
+      "event": "stage",
+      "detail": "discovery -> discovery: inline"
+    },
+    {
+      "at": "2026-10-02T23:32:00Z",
+      "event": "stage",
+      "detail": "discovery -> context: inline"
+    },
+    {
+      "at": "2026-10-02T23:32:00Z",
+      "event": "stage",
+      "detail": "context -> impact_analysis: inline"
+    },
+    {
+      "at": "2026-10-02T23:32:00Z",
+      "event": "stage",
+      "detail": "impact_analysis -> risk_classification: inline"
+    },
+    {
+      "at": "2026-10-02T23:32:00Z",
+      "event": "risk_classified",
+      "detail": "T2: public product name and installer reads a credentials file; no path scope above T0"
+    },
+    {
+      "at": "2026-10-02T23:32:00Z",
+      "event": "plan_approved",
+      "detail": "1 step, inline (quick)"
+    },
+    {
+      "at": "2026-10-02T23:32:00Z",
+      "event": "stage",
+      "detail": "risk_classification -> plan -> implementation: quick"
+    },
+    {
+      "at": "2026-10-02T23:32:00Z",
+      "event": "step_started",
+      "detail": "1: WP1a: public name ai-riskrail (display RiskRail), compliance lines in README, id_token-only Codex plan detection, intent amended"
+    },
+    {
+      "at": "2026-10-02T23:33:52Z",
+      "event": "step_completed",
+      "detail": "1"
+    },
+    {
+      "at": "2026-10-02T23:38:06Z",
+      "event": "field_set",
+      "detail": "test_status = passing (suite run 1, exit 0)"
+    },
+    {
+      "at": "2026-10-02T23:38:13Z",
+      "event": "field_set",
+      "detail": "e2e_status = passing (e2e run 1, exit 0)"
+    },
+    {
+      "at": "2026-10-02T23:38:21Z",
+      "event": "field_set",
+      "detail": "sensors: review required"
+    },
+    {
+      "at": "2026-10-02T23:40:21Z",
+      "event": "remediation",
+      "detail": "R1: review: 3 MEDIUM + 3 LOW, wording only: old name in CONTRIBUTING/SECURITY/install.sh titles; constraint scoped to published names; OQ1 header; CI line placement; one time basis; req 27 cite"
+    },
+    {
+      "at": "2026-10-02T23:40:21Z",
+      "event": "step_started",
+      "detail": "R1: review: 3 MEDIUM + 3 LOW, wording only: old name in CONTRIBUTING/SECURITY/install.sh titles; constraint scoped to published names; OQ1 header; CI line placement; one time basis; req 27 cite"
+    },
+    {
+      "at": "2026-10-02T23:40:53Z",
+      "event": "step_completed",
+      "detail": "R1"
+    },
+    {
+      "at": "2026-10-02T23:45:04Z",
+      "event": "field_set",
+      "detail": "test_status = passing (suite run 2, exit 0)"
+    },
+    {
+      "at": "2026-10-02T23:45:12Z",
+      "event": "set",
+      "detail": "review_status = passed"
+    },
+    {
+      "at": "2026-10-02T23:45:12Z",
+      "event": "task_closed",
+      "detail": ""
+    }
+  ],
+  "owner_runtime": "claude",
+  "resume_point": {
+    "stage": "done",
+    "step_id": null,
+    "next_action": "none — task closed",
+    "at": "2026-10-02T23:45:12Z",
+    "runtime": "claude"
+  },
+  "questions": {
+    "file": ".ai/reports/T-2026-10-02-002/questions.md",
+    "pending": []
+  },
+  "handoff": {
+    "file": ".ai/state/handoff.md",
+    "written_at": "2026-10-02T23:45:12Z",
+    "reason": "stage",
+    "pending_to": null,
+    "pending_since": null
+  },
+  "diff": {
+    "base_commit": "a1d415d6141f06f1837c990b83fbbd3b06a33bba",
+    "base_tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd",
+    "task": {
+      "files": 3,
+      "added": 13,
+      "deleted": 8,
+      "lines": 21,
+      "excluded_lines": 0,
+      "unbudgeted_lines": 60,
+      "tree": "bcddc3401a0b9d1c73d3034e0d6b055ce14e85b2",
+      "measured_at": "2026-10-02T23:40:53Z",
+      "status": "green"
+    },
+    "rescored_tier": "T2",
+    "rescore_reasons": [],
+    "over_budget": false
+  },
+  "sensors": {
+    "file": ".ai/reports/T-2026-10-02-002/sensors.json",
+    "tree": "5b34d928c43738b1f39ab503797e87adeaedd62c",
+    "verdict": "required",
+    "checked_at": "2026-10-02T23:38:21Z"
+  },
+  "tests": {
+    "runs": [
+      {
+        "n": 1,
+        "scope": "suite",
+        "command": "bash tests/run-all.sh",
+        "tree": "5b34d928c43738b1f39ab503797e87adeaedd62c",
+        "exit": 0,
+        "duration_s": 250,
+        "log": ".ai/reports/T-2026-10-02-002/tests-suite-1.log",
+        "at": "2026-10-02T23:38:06Z",
+        "env_retry": false
+      },
+      {
+        "n": 1,
+        "scope": "e2e",
+        "command": "bash tests/test-end-to-end.sh",
+        "tree": "5b34d928c43738b1f39ab503797e87adeaedd62c",
+        "exit": 0,
+        "duration_s": 3,
+        "log": ".ai/reports/T-2026-10-02-002/tests-e2e-1.log",
+        "at": "2026-10-02T23:38:13Z",
+        "env_retry": false
+      },
+      {
+        "n": 2,
+        "scope": "suite",
+        "command": "bash tests/run-all.sh",
+        "tree": "bcddc3401a0b9d1c73d3034e0d6b055ce14e85b2",
+        "exit": 0,
+        "duration_s": 250,
+        "log": ".ai/reports/T-2026-10-02-002/tests-suite-2.log",
+        "at": "2026-10-02T23:45:04Z",
+        "env_retry": false
+      }
+    ],
+    "suite_runs": 2
+  },
+  "risk_tier_lowered": {
+    "by": null,
+    "at": null,
+    "from": null
+  },
+  "cross_vendor_review": null
+}

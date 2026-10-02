@@ -1,6 +1,6 @@
-# claude-agentic
+# RiskRail
 
-[![Version](https://img.shields.io/badge/version-2.0.2-d2f878?labelColor=101210)](https://github.com/vanssata/claude-agentic-sdlc-module/releases/tag/v2.0.2)
+[![Version](https://img.shields.io/badge/version-2.0.2-d2f878?labelColor=101210)](https://github.com/vanssata/ai-riskrail/releases/tag/v2.0.2)
 [![Runtimes](https://img.shields.io/badge/runtimes-Claude%20Code%20%7C%20Codex-d2f878?labelColor=101210)](#one-module-two-runtimes)
 [![Known risks](https://img.shields.io/badge/known%20risks-documented-d2f878?labelColor=101210)](#known-risks)
 [![License: MIT](https://img.shields.io/badge/license-MIT-d2f878?labelColor=101210)](LICENSE)
@@ -9,14 +9,22 @@
 widening its own scope, reading a production secret, force-pushing or
 deploying.**
 
-`claude-agentic` is a plugin for **Claude Code and Codex**, built for codebases
+RiskRail (`ai-riskrail`) is a plugin for **Claude Code and Codex**, built for codebases
 with undocumented business rules, old workarounds and behaviour customers
 rely on today. Small, well-defined changes go through easily. Risky ones are
 stopped by a hook, not by a polite request in a prompt.
 
+RiskRail is an independent project, not affiliated with or endorsed by
+Anthropic or OpenAI. It was called `claude-agentic` up to v2.0.2; the install
+directory and the managed-block markers still carry that name until a later
+release migrates them. A personal Claude Pro/Max or ChatGPT login is for one
+person's own use: a CI job, a shared runner or a team's batch runs Claude Code
+with an API key or a Team/Enterprise plan, and Codex with an API key or a
+Business/Enterprise plan.
+
 ```bash
-git clone https://github.com/vanssata/claude-agentic-sdlc-module.git
-cd claude-agentic-sdlc-module && ./install.sh   # detects Claude Code, Codex or both
+git clone https://github.com/vanssata/ai-riskrail.git
+cd ai-riskrail && ./install.sh   # detects Claude Code, Codex or both
 ```
 
 Then, in any project: `/ai-init` once, and `/ai-task <what you want>` for every
