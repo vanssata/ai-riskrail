@@ -523,13 +523,23 @@ outside every supported environment (`install.sh:80-81`). Loud is recommended (H
   not.
 - **H4:** frozen shell guards live under `tests/fixtures/guard-port/` until WP3b.
 
+**Decided 2026-10-03 by the maintainer, via the picker during `/sdlc-plan`:**
+
+- **H5:** the human edits `.ai/policies/testing.md:142` after WP1 is approved, one row. The text is in
+  the plan.
+- **H6:** `-I -S` in the shim. The task keeps `-S` only if every suite passes with it.
+- **H7:** a missing interpreter is loud (exit 127).
+- **N1:** F6a, F6c and F6e become separate rule-change tasks after WP1.
+- **Split:** WP1 runs as separately reviewed `/ai-task` tasks. The plan cuts it into eight (WP1.1–WP1.8).
+- **Budget exclusion:** the human adds `tests/fixtures/guard-port/**` and
+  `tests/fixtures/ere/cases.tsv` to `diff_budget.exclude` before WP1.1.
+- The plan's review changed three interface details: `BUDGETED` becomes a mapping to the outcome on
+  expiry, the differential switches guards through a `PORTED` table, and `install.sh` keeps its
+  `lib/*.sh` globs. See the plan's *Deviations from the spec*.
+
 | # | Question | Owner | Blocks |
 |---|---|---|---|
-| H5 | F8: who edits `.ai/policies/testing.md:142`: the human after approval, or WP3a? *Recommended: the human, one row.* | human | release of WP1 |
-| H6 | `-I -S` in the shim now (and in the command line in WP4a)? *Recommended: yes*; the task keeps `-S` only if every suite passes with it. | human | the plan |
-| H7 | F12: a missing interpreter is loud (exit 127) rather than silent? *Recommended: loud.* | human | — |
 | OQ7 | Carried from the intent and answered here: D3 (meaning), D4 (side-by-side over generated inputs), D5 (too slow). | spec → plan review | WP1 |
 | OQ3 | The interpreter's name on Windows (`python3`/`python`/`py`), and the shell used for hooks. | WP4b | WP4b |
 | OQ8 | Acceptable latency on macOS and Windows. | WP4b | WP4b |
 | OQ24 | Which packages make up which release. If H1 is rejected, WP1 must ship with WP4a. | human | release |
-| N1 | Should the additive rule protecting `hooks/lib/` (F6e) and a fix for F6a and F6c be scheduled as their own rule-change tasks after WP1? | human | — |
