@@ -320,8 +320,8 @@ existing, so one can be added later without redesigning anything.
 
 ## Can I use this from Codex as well as Claude Code?
 
-Yes, and from both over the same repository. `./install.sh` detects what you have
-and installs for each; `--target auto|claude|codex|both` overrides it. The `.ai/`
+Yes, and from both over the same repository. `./install.sh` detects which CLIs
+are on `PATH` and installs for each; `--target auto|claude|codex|both` overrides it. The `.ai/`
 tree, the pipeline, the tiers and the task state are shared — a task started in
 one runtime resumes in the other. What differs is the install root, the
 instruction file (`CLAUDE.md` / `AGENTS.md`) and which model each tier resolves

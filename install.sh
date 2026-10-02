@@ -2,7 +2,7 @@
 # claude-agentic installer (Claude Code and/or Codex).
 #   ./install.sh [--target auto|claude|codex|both] [--plan pro|team-pro|team-max|max|max20|balanced-max]
 #                [--fable auto|yes|no] [--codex-plan plus|pro|balanced-max] [--dry-run]
-# --target defaults to auto: each runtime is installed only if it is present.
+# --target defaults to auto: each runtime is installed only if its executable is on PATH.
 # --plan   Claude only: pro, team-pro (Team Standard seat), team-max (Team Premium seat), max
 #          or max20 (Max 20x: max's settings, larger budgets). Defaults to auto-detect from
 #          ~/.claude.json (organizationType, organizationRateLimitTier, the seat tiers for a
@@ -82,6 +82,9 @@ command -v python3 >/dev/null 2>&1 || { echo "python3 is required" >&2; exit 1; 
 
 # ---------------------------------------------------------------- runtime detection
 DO_CLAUDE=0 DO_CODEX=0
+skipped_runtime() {  # skipped_runtime <runtime> <dir>
+  echo "$1: $2 found but no $1 on PATH — skipped (--target $1 for it alone, --target both for both)" >&2
+}
 case "$TARGET" in
   claude) DO_CLAUDE=1;;
   codex)  DO_CODEX=1;;
@@ -92,17 +95,22 @@ case "$TARGET" in
     elif [ "$CODEX_DIR_GIVEN" = 1 ] && [ "$CLAUDE_DIR_GIVEN" = 0 ]; then
       DO_CODEX=1
     else
-      if command -v claude >/dev/null 2>&1 || [ -d "$CLAUDE_DIR" ] || [ "$PLAN_GIVEN" = 1 ]; then DO_CLAUDE=1; fi
-      if command -v codex  >/dev/null 2>&1 || [ -d "$CODEX_DIR"  ] || [ "$CODEX_PLAN_GIVEN" = 1 ]; then DO_CODEX=1; fi
+      # The executable is the runtime; a directory alone is not. A leftover
+      # ~/.codex (or ~/.claude) would otherwise get a full install and a plan
+      # prompt for a tool that is not there. A plan flag still names it.
+      if command -v claude >/dev/null 2>&1 || [ "$PLAN_GIVEN" = 1 ]; then DO_CLAUDE=1
+      elif [ -d "$CLAUDE_DIR" ]; then skipped_runtime claude "$CLAUDE_DIR"; fi
+      if command -v codex  >/dev/null 2>&1 || [ "$CODEX_PLAN_GIVEN" = 1 ]; then DO_CODEX=1
+      elif [ -d "$CODEX_DIR" ]; then skipped_runtime codex "$CODEX_DIR"; fi
     fi;;
 esac
 if [ "$DO_CLAUDE" = 0 ] && [ "$DO_CODEX" = 0 ]; then
   cat >&2 <<'NONE'
 No supported runtime found.
 
-Looked for a `claude` or `codex` executable on PATH and for an existing
-~/.claude or ~/.codex directory, and found neither. Install Claude Code or
-Codex first, or name the runtime yourself:
+Looked for a `claude` or `codex` executable on PATH and found neither (an
+existing ~/.claude or ~/.codex directory alone does not count). Install Claude
+Code or Codex first, or name the runtime yourself:
 
   ./install.sh --target claude      # Claude Code only
   ./install.sh --target codex       # Codex only

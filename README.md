@@ -124,9 +124,13 @@ zero model cost — no model is involved in writing or reading any of these file
 ./install.sh --codex-plan balanced-max  # Pro's budgets, Sol session, FAST readers on Luna, Astra at high
 ```
 
-`--target auto` installs for each runtime it finds — the CLI on `PATH`, or an
-existing install directory. If it finds neither it stops and tells you which
-`--target` to name; it never guesses one.
+`--target auto` installs for each runtime whose CLI is on `PATH`, and asks for
+that runtime's plan only. A `~/.claude` or `~/.codex` directory without its CLI
+is skipped with a one-line note — `--target both` includes it anyway, which is
+also the way in when the CLI exists but is not on this shell's `PATH` (an IDE
+extension's bundled binary, `sudo` without `~/.local/bin`). If it
+finds neither CLI it stops and tells you which `--target` to name; it never
+guesses one.
 
 Restart the runtime afterwards.
 
