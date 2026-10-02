@@ -7,21 +7,21 @@
 <meta name="description" content="A public, reproducible benchmark: 42 realistic tasks from production work, run by plain Claude Code, plain Codex and claude-agentic under one protocol.">
 <meta property="og:title" content="claude-agentic benchmark: plain Claude, plain Codex, claude-agentic">
 <meta property="og:description" content="42 tasks taken from two weeks of real work, risk-tiered, graded by hidden tests. Suite and protocol published before the first run.">
-<meta name="theme-color" content="#0f0f0f">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%230f0f0f'/%3E%3Cpath d='M18 44V20h6l16 24h6V20' fill='none' stroke='%23D97757' stroke-width='5'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#221A15">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23221A15'/%3E%3Cpath d='M18 44V20h6l16 24h6V20' fill='none' stroke='%23E39B6B' stroke-width='5'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
 /* Same system as index.html: ABR frame, square corners, Claude orange accent. */
 :root{
-  --accent:#D97757; --abr-black:#0f0f0f; --abr-white:#ffffff;
-  --m50:#f5f5f5; --m100:#e2e3e5; --m200:#d3d3d4; --m300:#b6b6b6; --m400:#808080; --m600:#5a5a5a; --m700:#404040; --m800:#313131; --m900:#212121;
-  --abr-focus:#006bd6;
+  --accent:#E39B6B; --abr-black:#221A15; --abr-white:#FBF7F1;
+  --m50:#f3ede4; --m100:#e6ddd0; --m200:#d6cbbb; --m300:#b8ab99; --m400:#8a7e6f; --m600:#5f5549; --m700:#463e35; --m800:#312b24; --m900:#231e19;
+  --abr-focus:#2563eb;
   --bg:var(--abr-white); --fg:var(--abr-black); --muted:var(--m600); --line:var(--m200);
   --font:Inter,Arial,sans-serif; --mono:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace;
   --stroke:2px; --gut:clamp(16px,4vw,72px); --max:1296px;
-  --t0:#e2e3e5; --t1:#cfe3d4; --t2:#f4e1a6; --t3:#f2b999; --t4:#D97757; --t5:#0f0f0f;
+  --t0:#e2e3e5; --t1:#cfe3d4; --t2:#f8e6d6; --t3:#efc4a0; --t4:#E39B6B; --t5:#221A15;
 }
 *{box-sizing:border-box;border-radius:0}
 html{-webkit-text-size-adjust:100%;scroll-padding-top:88px}
@@ -111,7 +111,7 @@ tr[hidden]{display:none}
 .dark .note{background:var(--m900)}
 .bar{display:block;height:8px;background:var(--m100);margin-top:6px;position:relative}
 .bar i{position:absolute;inset:0 auto 0 0;background:var(--accent)}
-.over{color:#b3401c;font-weight:600}
+.over{color:#9a4f1e;font-weight:600}
 
 ol.steps{counter-reset:s;list-style:none;padding:0;margin:40px 0 0;display:grid;gap:16px;max-width:900px}
 ol.steps li{counter-increment:s;display:grid;grid-template-columns:56px 1fr;gap:16px;align-items:start}
@@ -144,14 +144,14 @@ footer a{text-decoration:none;color:var(--abr-white);border-bottom:2px solid tra
 .detail{min-height:78px;margin-top:18px;padding:16px 20px;background:var(--m50);border-left:4px solid var(--accent);font-size:16px}
 .detail .h{font:600 14px var(--mono);margin-bottom:4px}
 .detail .m{color:var(--muted);font-size:14px;margin-top:4px}
-tr.hl td{background:#fff4ee}
+tr.hl td{background:#fbefe3}
 @media (max-width:760px){.map{grid-template-columns:1fr}}
 
 /* costs */
 .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:40px}
 .kpis div{padding:20px 20px 20px 0;border-top:2px solid var(--fg)}
 .kpis b{display:block;font:700 clamp(30px,3.6vw,48px)/1 var(--font);letter-spacing:-.03em}
-.kpis b.save{color:#b3401c}
+.kpis b.save{color:#9a4f1e}
 .kpis span{display:block;font-size:15px;color:var(--muted);margin-top:8px}
 @media (max-width:820px){.kpis{grid-template-columns:repeat(2,1fr)}}
 .swatch{display:flex;flex-wrap:wrap;gap:18px;font-size:14px;color:var(--muted);margin:28px 0 12px}
@@ -250,7 +250,7 @@ table.fleet{min-width:940px}
 
 <header class="rail">
   <a class="brand" href="./" aria-label="claude-agentic home">
-    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#D97757"/><path d="M18 44V20h6l16 24h6V20" fill="none" stroke="#0f0f0f" stroke-width="5"/></svg>
+    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#E39B6B"/><path d="M18 44V20h6l16 24h6V20" fill="none" stroke="#221A15" stroke-width="5"/></svg>
     claude-agentic
   </a>
   <nav aria-label="Sections">
@@ -364,7 +364,7 @@ table.fleet{min-width:940px}
     <div class="ba">
       <div class="cmp" id="cmp"></div>
       <div class="chart"><div id="daily"></div>
-        <div class="swatch" style="margin-top:14px"><span><i style="background:var(--accent)"></i>Opus</span><span><i style="background:#8a3a22"></i>Fable</span><span><i style="background:#5b8fd9"></i>Sonnet</span><span><i style="background:#58a86a"></i>Haiku</span></div>
+        <div class="swatch" style="margin-top:14px"><span><i style="background:var(--accent)"></i>Opus</span><span><i style="background:#6f3a17"></i>Fable</span><span><i style="background:#5b8fd9"></i>Sonnet</span><span><i style="background:#58a86a"></i>Haiku</span></div>
       </div>
     </div>
     <pre><span class="c"># reproduce every number above at zero model cost</span>
@@ -389,7 +389,7 @@ python3 skills/usage-report/usage-report.py --all --provider claude</pre>
 
     <h3 style="margin-top:64px">Per project</h3>
     <p class="sub">Project names are generalised — the originals are client code, as everywhere else on this site. <code>.ai/</code> marks a repository that had claude-agentic installed at the time.</p>
-    <div class="swatch"><span><i style="background:var(--accent)"></i>Opus 5</span><span><i style="background:#8a3a22"></i>Fable 5.1</span><span><i style="background:#5b8fd9"></i>Sonnet 5</span><span><i style="background:#58a86a"></i>Haiku 4.5</span><span><i style="background:#9a9a9a"></i>Codex</span></div>
+    <div class="swatch"><span><i style="background:var(--accent)"></i>Opus 5</span><span><i style="background:#6f3a17"></i>Fable 5.1</span><span><i style="background:#5b8fd9"></i>Sonnet 5</span><span><i style="background:#58a86a"></i>Haiku 4.5</span><span><i style="background:#9a9a9a"></i>Codex</span></div>
     <div class="tbl" style="margin-top:18px">
       <table class="fleet">
         <thead><tr><th>Project</th><th>Stack</th><th><code>.ai/</code></th><th>Sessions</th><th>Days</th><th>Tokens</th><th>Model mix by spend</th><th style="text-align:right">List price</th></tr></thead>
@@ -504,7 +504,7 @@ const FLEET={"PRJ":[["claude-agentic (this repo)","Plugin \u00b7 shell/python",1
   const usd = v => '$' + v.toFixed(2);
   const money = v => '$' + Math.round(v).toLocaleString('en-US');
   const { PRJ, FN, FT, TOT } = FLEET;
-  const COL = ['var(--accent)', '#8a3a22', '#5b8fd9', '#58a86a', '#9a9a9a'];
+  const COL = ['var(--accent)', '#6f3a17', '#5b8fd9', '#58a86a', '#9a9a9a'];
   const FAM = ['Opus', 'Fable', 'Sonnet', 'Haiku', 'Codex'];
 
   $('#f-cost').textContent = money(TOT.cost);
@@ -677,13 +677,13 @@ const FLEET={"PRJ":[["claude-agentic (this repo)","Plugin \u00b7 shell/python",1
   // before / after, per request
   const BA = [['Cost per request', 0.1136, 0.1042, v => '$' + v.toFixed(3)], ['Output tokens', 623, 501, v => v], ['Cache writes', 4903, 3209, v => (v / 1000).toFixed(1) + 'K'], ['Context re-read', 124046, 126344, v => (v / 1000).toFixed(0) + 'K']];
   $('#cmp').innerHTML = BA.map(([n, b, a, f]) => { const m = Math.max(a, b), d = pct(a, b);
-    return `<div class="r"><span>${n}<br><small style="color:var(--muted)">per request</small></span><span class="bars"><span class="b" style="width:${b / m * 55}%" data-v="before ${f(b)}"></span><span class="a" style="width:${a / m * 55}%" data-v="after ${f(a)}"></span></span><span class="d" style="color:${d < 0 ? '#1d7a3a' : '#b3401c'}">${d > 0 ? '+' : ''}${d.toFixed(1)}%</span></div>`; }).join('');
+    return `<div class="r"><span>${n}<br><small style="color:var(--muted)">per request</small></span><span class="bars"><span class="b" style="width:${b / m * 55}%" data-v="before ${f(b)}"></span><span class="a" style="width:${a / m * 55}%" data-v="after ${f(a)}"></span></span><span class="d" style="color:${d < 0 ? '#1d7a3a' : '#9a4f1e'}">${d > 0 ? '+' : ''}${d.toFixed(1)}%</span></div>`; }).join('');
 
   // daily spend by model family, list price
   const D = [['08-25',160.4,16.57,10.33,0],['08-31',82.69,17.49,3.05,0],['09-01',62.77,49.83,1.21,0],['09-02',63.38,90.19,7.6,.96],['09-03',125.34,49.16,11.04,.5],['09-04',72.74,15.45,10.17,0],
     ['09-08',94.91,76.52,8.77,.05],['09-09',179.81,30.42,16.08,.13],['09-10',141.64,46.03,10.11,.23],['09-11',168.87,97.14,7.44,.22],['09-14',18.01,52.05,5.49,.22],
     ['09-15',29.07,21.03,16.51,.6],['09-16',101.64,10.92,26.07,.28],['09-17',107.77,0,3.38,0],['09-18',111.36,0,1.99,0],['09-21',104.75,12.16,4.73,.92],['09-23',219.23,3.6,8.19,.17]];
-  const COL = ['var(--accent)','#8a3a22','#5b8fd9','#58a86a'];
+  const COL = ['var(--accent)','#6f3a17','#5b8fd9','#58a86a'];
   const cw = 560, ch = 240, pad = 34, bw = (cw - pad) / D.length, top = 300;
   let svg = `<svg viewBox="0 0 ${cw} ${ch + 26}" role="img" aria-label="Daily list-price spend by model family, 25 Aug to 23 Sep">`;
   [0, 100, 200, 300].forEach(v => { const y = ch - v / top * ch; svg += `<line x1="${pad}" x2="${cw}" y1="${y}" y2="${y}" stroke="var(--m200)"/><text x="0" y="${y + 4}">$${v}</text>`; });
