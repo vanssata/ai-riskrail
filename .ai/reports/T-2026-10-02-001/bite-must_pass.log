@@ -1,0 +1,29 @@
+== guard differential (300 payloads, 22 state variants, seed 20261003)
+guard differential: 734 passed, 0 failed (seed 20261003, n 300)
+== the walk is where the skill says it is
+  ok    step 1 carries the walk and names find_ai_root as its source
+== the skill and find_ai_root resolve the same root
+  FAIL  its own .ai/ at the repository root: the skill and the guard disagree
+        skill=outer/repo guard=EMPTY
+  FAIL  its own .ai/, from a subdirectory: the skill and the guard disagree
+        skill=outer/repo guard=EMPTY
+  FAIL  a .ai/ inherited from an ancestor: the skill and the guard disagree
+        skill=outer guard=EMPTY
+  FAIL  inherited, from a subdirectory: the skill and the guard disagree
+        skill=outer guard=EMPTY
+  ok    no .ai/ anywhere above (EMPTY)
+== the warning cases are spelled out, not left to judgement
+  ok    step 1 still covers: ancestor of
+  ok    step 1 still covers: is `$HOME`
+  ok    step 1 still covers: never ran `/ai-init`
+== the report names what loads on every turn
+  ok    the budget step measures the project block against 2048 B
+  ok    the budget step covers: GEMINI.md
+  ok    the budget step covers: .junie/guidelines.md
+  ok    the budget step covers: docs/sdlc/constitution.md
+  ok    the budget step covers: OVER
+== the plugin-version step carries the adopt line
+  ok    step 7 covers: --adopt --check
+  ok    step 7 covers: (deleted unattended)
+
+ai-status project root: 12 passed, 4 failed

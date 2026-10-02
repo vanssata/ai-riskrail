@@ -6,7 +6,7 @@
 # they are in — a .ai/ in an ancestor, or in $HOME, silently arms the path and
 # scope guards for every repository below it, and that is not visible from
 # anywhere else. The walk is only worth anything while it agrees with
-# find_ai_root in hooks/lib/ai-hook-common.sh, so this suite runs the snippet
+# find_ai_root in hooks/lib/ai_os.py, so this suite runs the snippet
 # straight out of the skill and compares the two, case by case.
 set -uo pipefail
 . "$(dirname "$0")/lib.sh"
@@ -38,11 +38,10 @@ git -C "$TMP/bare" init -q -b main
 resolved() {
     ( cd "$1" && bash -c '
         set -uo pipefail
-        . "$1/hooks/lib/ai-hook-common.sh"
         . "$2"
         printf "%s\n" "$AI_PROJECT"
-        AI_CWD=$PWD
-        find_ai_root "$PWD" || printf "\n"
+        python3 -I -S -c "import sys; sys.path.insert(0, sys.argv[1]); import ai_os; print(ai_os.find_ai_root(sys.argv[2]) or \"\")" \
+            "$1/hooks/lib" "$PWD"
       ' _ "$PLUGIN_ROOT" "$TMP/snippet.sh" 2>/dev/null )
 }
 

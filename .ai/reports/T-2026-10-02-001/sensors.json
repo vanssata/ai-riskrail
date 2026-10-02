@@ -1,0 +1,77 @@
+{
+  "checked_at": "2026-10-02T23:21:29Z",
+  "declared_tier": "T3",
+  "rescored_tier": "T3",
+  "schema": 1,
+  "sensors": {
+    "bite": {
+      "detail": "2 characterization test(s) fail against the code they describe (tests/test-guard-differential.sh, tests/test-ai-status-root.sh)",
+      "must_fail": null,
+      "must_pass": {
+        "exit": 1,
+        "tests": 2
+      },
+      "restored": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd",
+      "status": "red",
+      "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd"
+    },
+    "diff": {
+      "detail": "5 files / 572 lines (T3 task budget 30 / 800)",
+      "files": 5,
+      "lines": 572,
+      "status": "green",
+      "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd",
+      "unscoped": []
+    },
+    "duplicates": {
+      "detail": "0 blocks >= 8 lines repeat",
+      "status": "green",
+      "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd"
+    },
+    "lint": {
+      "detail": "pylint $(git ls-files '*.py') exit 0 in 4s",
+      "log": ".ai/reports/T-2026-10-02-001/lint.log",
+      "status": "green",
+      "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd"
+    },
+    "plan_sections": {
+      "detail": "docs/sdlc/plans/os-independent-installer-packaging-wp1-guards-in-python.md carries every section",
+      "status": "green",
+      "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd"
+    },
+    "rescore": {
+      "detail": "T3 \u2014 scopes: docs, source, tests",
+      "reasons": [],
+      "status": "green",
+      "tier": "T3",
+      "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd"
+    },
+    "tests": {
+      "detail": "verify_command exit 0 in 257s, run 2, log .ai/reports/T-2026-10-02-001/tests-suite-2.log",
+      "log": ".ai/reports/T-2026-10-02-001/tests-suite-2.log",
+      "status": "green",
+      "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd"
+    },
+    "traceability": {
+      "detail": "6/6 finished steps name tests that exist",
+      "status": "green",
+      "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd"
+    },
+    "typecheck": {
+      "detail": "typecheck_command: none (testing.md)",
+      "status": "not_applicable",
+      "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd"
+    }
+  },
+  "task": "T-2026-10-02-001",
+  "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd",
+  "verdict": {
+    "all_green": false,
+    "blocking": [
+      "bite: red",
+      "tier T3 is above T2",
+      "the diff re-scores to T3"
+    ],
+    "review": "required"
+  }
+}

@@ -1,0 +1,474 @@
+{
+  "task_id": "T-2026-10-02-001",
+  "goal": "WP1.1: oracle, harness and the OS module",
+  "workflow": "refactoring",
+  "risk_tier": "T3",
+  "current_stage": "done",
+  "affected_modules": [],
+  "context_summary_ref": null,
+  "approved_plan": {
+    "ref": "docs/sdlc/plans/os-independent-installer-packaging-wp1-guards-in-python.md",
+    "current_step_id": null,
+    "steps": [
+      {
+        "step_id": "1",
+        "description": "Amend the intent table (intent:436,440), following H1. WP1 row: drop 'the hook command lines in settings.common.json and codex/hooks.json' and 'the upgrade of existing entries'; name the exec shims and the split into WP1.1-WP1.8. WP4a row: add the command-line switch, O30's de-duplicating upgrade of old entries, and the removal of stale installed files.",
+        "allowed_files": [
+          "docs/sdlc/intent/os-independent-installer-packaging.md"
+        ],
+        "required_tests": [],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this step",
+        "status": "done",
+        "kind": "implementation",
+        "tree_before": "36fb4b5e404de970a69af9eb9f3ed988a7b4717d",
+        "diff": {
+          "tree_after": "7014a8fef5b589cfe0af4a53026e3c91d20d2f00",
+          "seq": 1,
+          "paths": [],
+          "files": 0,
+          "added": 0,
+          "deleted": 0,
+          "lines": 0,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      },
+      {
+        "step_id": "2",
+        "description": "Freeze the oracle with cp -p, keeping lib/ beside the guards: hooks/ai-{git,path,scope}-guard.sh and hooks/lib/ai-hook-common.sh go to tests/fixtures/guard-port/. By hand: cmp each copy against its source and check the modes.",
+        "allowed_files": [
+          "tests/fixtures/guard-port/"
+        ],
+        "required_tests": [],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this step",
+        "status": "done",
+        "kind": "implementation",
+        "tree_before": "7014a8fef5b589cfe0af4a53026e3c91d20d2f00",
+        "diff": {
+          "tree_after": "1c6cd2716e67cd1ef1020ff410521548b43e0cf4",
+          "seq": 2,
+          "paths": [],
+          "files": 0,
+          "added": 0,
+          "deleted": 0,
+          "lines": 0,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      },
+      {
+        "step_id": "3",
+        "description": "The harness of tests/test_guard_differential.py (stdlib only): the characterization tree rebuilt in Python plus a symlinked project; scratch HOME and scratch hooks/ (frozen copies, current *-defaults.json); LC_ALL=C; PORTED table (all absent); jq-less PATH for .py guards; 10% sample of the source-tree .sh; rc/stdout/stderr byte comparison; 30 s timeout; skip without bash or jq. Plus the wrapper tests/test-guard-differential.sh and its run-all.sh entry after test-guard-characterization.sh.",
+        "allowed_files": [
+          "tests/test_guard_differential.py",
+          "tests/test-guard-differential.sh",
+          "tests/run-all.sh"
+        ],
+        "required_tests": [
+          "tests/test-guard-differential.sh"
+        ],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this step",
+        "status": "done",
+        "kind": "implementation",
+        "tree_before": "1c6cd2716e67cd1ef1020ff410521548b43e0cf4",
+        "diff": {
+          "tree_after": "ba9eca43b9dc90e1b8131de9c21a8e337bdb80af",
+          "seq": 3,
+          "paths": [
+            "tests/run-all.sh",
+            "tests/test-guard-differential.sh",
+            "tests/test_guard_differential.py"
+          ],
+          "files": 3,
+          "added": 232,
+          "deleted": 1,
+          "lines": 233,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      },
+      {
+        "step_id": "4",
+        "description": "The D4 iii payload grammar in tests/test_guard_differential.py: bash class (verbs x flags x paths, shell syntax), Codex tool names and shell arrays, file class (file tools x path fields, apply_patch headers), malformed input, state variants; AI_DIFF_SEED (default 20261003) printed, AI_DIFF_N default 300. By hand: one run with AI_DIFF_N=2000, with its seed.",
+        "allowed_files": [
+          "tests/test_guard_differential.py"
+        ],
+        "required_tests": [
+          "tests/test-guard-differential.sh"
+        ],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this step",
+        "status": "done",
+        "kind": "implementation",
+        "tree_before": "ba9eca43b9dc90e1b8131de9c21a8e337bdb80af",
+        "diff": {
+          "tree_after": "46835d7702da40cc0618915fca304c63a61e8750",
+          "seq": 4,
+          "paths": [
+            "tests/test_guard_differential.py"
+          ],
+          "files": 1,
+          "added": 190,
+          "deleted": 10,
+          "lines": 200,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      },
+      {
+        "step_id": "5",
+        "description": "hooks/lib/ai_os.py per the spec's interface: runtime_home, hook_config_dirs, logical_cwd, resolve_dir, find_ai_root, abs_path, real_path, run_git. Then tests/test-ai-status-root.sh: the comment at :9 names hooks/lib/ai_os.py; the reference call at :41-45 becomes one python3 -I -S -c call importing ai_os and printing find_ai_root($PWD) or an empty line. No assertion changes.",
+        "allowed_files": [
+          "hooks/lib/ai_os.py",
+          "tests/test-ai-status-root.sh"
+        ],
+        "required_tests": [
+          "tests/test-ai-status-root.sh"
+        ],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this step",
+        "status": "done",
+        "kind": "implementation",
+        "tree_before": "46835d7702da40cc0618915fca304c63a61e8750",
+        "diff": {
+          "tree_after": "9882978a2054f175ecedfa788581323c4bbbdaa2",
+          "seq": 5,
+          "paths": [
+            "hooks/lib/ai_os.py",
+            "tests/test-ai-status-root.sh"
+          ],
+          "files": 2,
+          "added": 146,
+          "deleted": 4,
+          "lines": 150,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      },
+      {
+        "step_id": "R1",
+        "description": "review: 1 HIGH (grammar outside D6 in tool_name/cwd/hook_event_name), 1 MEDIUM (resolve_dir: cd -L fallback when the canonical dir cannot be entered), 2 cheap LOW (zero comparisons pass; env leaks)",
+        "allowed_files": [
+          "docs/sdlc/intent/os-independent-installer-packaging.md",
+          "tests/fixtures/guard-port/",
+          "tests/test_guard_differential.py",
+          "tests/test-guard-differential.sh",
+          "tests/run-all.sh",
+          "hooks/lib/ai_os.py",
+          "tests/test-ai-status-root.sh"
+        ],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this task",
+        "required_tests": [],
+        "status": "done",
+        "tree_before": "9882978a2054f175ecedfa788581323c4bbbdaa2",
+        "kind": "remediation",
+        "diff": {
+          "tree_after": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd",
+          "seq": 6,
+          "paths": [
+            "hooks/lib/ai_os.py",
+            "tests/test_guard_differential.py"
+          ],
+          "files": 2,
+          "added": 19,
+          "deleted": 10,
+          "lines": 29,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      }
+    ]
+  },
+  "completed_steps": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "R1"
+  ],
+  "test_status": "passing",
+  "e2e_status": "passing",
+  "review_status": "passed",
+  "security_status": "not_started",
+  "open_risks": [],
+  "next_action": "none — task closed",
+  "human_approval": {
+    "required": true,
+    "granted": true,
+    "granted_by": "ikakarov",
+    "granted_at": "2026-10-02T23:30:16Z",
+    "requested_at": null,
+    "gate_id": null,
+    "requested_session": null,
+    "rejected_at": null,
+    "via": "terminal",
+    "unattended": false
+  },
+  "created_at": "2026-10-02T22:40:39Z",
+  "updated_at": "2026-10-02T23:31:56Z",
+  "history": [
+    {
+      "at": "2026-10-02T22:40:39Z",
+      "event": "task_started",
+      "detail": "WP1.1: oracle, harness and the OS module (refactoring)"
+    },
+    {
+      "at": "2026-10-02T22:40:39Z",
+      "event": "stage",
+      "detail": "discovery -> discovery: inline"
+    },
+    {
+      "at": "2026-10-02T22:40:39Z",
+      "event": "stage",
+      "detail": "discovery -> context: inline"
+    },
+    {
+      "at": "2026-10-02T22:40:39Z",
+      "event": "stage",
+      "detail": "context -> impact_analysis: inline"
+    },
+    {
+      "at": "2026-10-02T22:40:39Z",
+      "event": "stage",
+      "detail": "impact_analysis -> risk_classification: inline"
+    },
+    {
+      "at": "2026-10-02T22:40:39Z",
+      "event": "risk_classified",
+      "detail": "T3: refactoring of shared code; plan approved in plan mode"
+    },
+    {
+      "at": "2026-10-02T22:40:39Z",
+      "event": "plan_approved",
+      "detail": "1 step, inline (quick)"
+    },
+    {
+      "at": "2026-10-02T22:40:39Z",
+      "event": "stage",
+      "detail": "risk_classification -> plan -> implementation: quick"
+    },
+    {
+      "at": "2026-10-02T22:40:39Z",
+      "event": "step_started",
+      "detail": "1: WP1.1: oracle, harness and the OS module"
+    },
+    {
+      "at": "2026-10-02T22:40:39Z",
+      "event": "plan_approved",
+      "detail": "5 steps, docs/sdlc/plans/os-independent-installer-packaging-wp1-guards-in-python.md"
+    },
+    {
+      "at": "2026-10-02T22:40:43Z",
+      "event": "step_started",
+      "detail": "1: Amend the intent table (intent:436,440), following H1. WP1 row: drop 'the hook command lines in settings.common.json and codex/hooks.json' and 'the upgrade of existing entries'; name the exec shims and the split into WP1.1-WP1.8. WP4a row: add the command-line switch, O30's de-duplicating upgrade of old entries, and the removal of stale installed files."
+    },
+    {
+      "at": "2026-10-02T22:41:04Z",
+      "event": "step_completed",
+      "detail": "1"
+    },
+    {
+      "at": "2026-10-02T22:41:18Z",
+      "event": "step_started",
+      "detail": "2: Freeze the oracle with cp -p, keeping lib/ beside the guards: hooks/ai-{git,path,scope}-guard.sh and hooks/lib/ai-hook-common.sh go to tests/fixtures/guard-port/. By hand: cmp each copy against its source and check the modes."
+    },
+    {
+      "at": "2026-10-02T22:41:22Z",
+      "event": "step_completed",
+      "detail": "2"
+    },
+    {
+      "at": "2026-10-02T22:45:29Z",
+      "event": "step_started",
+      "detail": "3: The harness of tests/test_guard_differential.py (stdlib only): the characterization tree rebuilt in Python plus a symlinked project; scratch HOME and scratch hooks/ (frozen copies, current *-defaults.json); LC_ALL=C; PORTED table (all absent); jq-less PATH for .py guards; 10% sample of the source-tree .sh; rc/stdout/stderr byte comparison; 30 s timeout; skip without bash or jq. Plus the wrapper tests/test-guard-differential.sh and its run-all.sh entry after test-guard-characterization.sh."
+    },
+    {
+      "at": "2026-10-02T22:46:25Z",
+      "event": "step_completed",
+      "detail": "3"
+    },
+    {
+      "at": "2026-10-02T22:47:43Z",
+      "event": "step_started",
+      "detail": "4: The D4 iii payload grammar in tests/test_guard_differential.py: bash class (verbs x flags x paths, shell syntax), Codex tool names and shell arrays, file class (file tools x path fields, apply_patch headers), malformed input, state variants; AI_DIFF_SEED (default 20261003) printed, AI_DIFF_N default 300. By hand: one run with AI_DIFF_N=2000, with its seed."
+    },
+    {
+      "at": "2026-10-02T22:49:11Z",
+      "event": "step_completed",
+      "detail": "4"
+    },
+    {
+      "at": "2026-10-02T22:51:58Z",
+      "event": "step_started",
+      "detail": "5: hooks/lib/ai_os.py per the spec's interface: runtime_home, hook_config_dirs, logical_cwd, resolve_dir, find_ai_root, abs_path, real_path, run_git. Then tests/test-ai-status-root.sh: the comment at :9 names hooks/lib/ai_os.py; the reference call at :41-45 becomes one python3 -I -S -c call importing ai_os and printing find_ai_root($PWD) or an empty line. No assertion changes."
+    },
+    {
+      "at": "2026-10-02T22:57:18Z",
+      "event": "step_completed",
+      "detail": "5"
+    },
+    {
+      "at": "2026-10-02T23:01:37Z",
+      "event": "field_set",
+      "detail": "test_status = passing (suite run 1, exit 0)"
+    },
+    {
+      "at": "2026-10-02T23:01:45Z",
+      "event": "field_set",
+      "detail": "e2e_status = passing (e2e run 1, exit 0)"
+    },
+    {
+      "at": "2026-10-02T23:02:46Z",
+      "event": "field_set",
+      "detail": "sensors: review required"
+    },
+    {
+      "at": "2026-10-02T23:13:11Z",
+      "event": "set",
+      "detail": "review_status = passed"
+    },
+    {
+      "at": "2026-10-02T23:13:11Z",
+      "event": "remediation",
+      "detail": "R1: review: 1 HIGH (grammar outside D6 in tool_name/cwd/hook_event_name), 1 MEDIUM (resolve_dir: cd -L fallback when the canonical dir cannot be entered), 2 cheap LOW (zero comparisons pass; env leaks)"
+    },
+    {
+      "at": "2026-10-02T23:13:11Z",
+      "event": "step_started",
+      "detail": "R1: review: 1 HIGH (grammar outside D6 in tool_name/cwd/hook_event_name), 1 MEDIUM (resolve_dir: cd -L fallback when the canonical dir cannot be entered), 2 cheap LOW (zero comparisons pass; env leaks)"
+    },
+    {
+      "at": "2026-10-02T23:16:20Z",
+      "event": "step_completed",
+      "detail": "R1"
+    },
+    {
+      "at": "2026-10-02T23:21:08Z",
+      "event": "field_set",
+      "detail": "test_status = passing (suite run 2, exit 0)"
+    },
+    {
+      "at": "2026-10-02T23:21:29Z",
+      "event": "field_set",
+      "detail": "sensors: review required"
+    },
+    {
+      "at": "2026-10-02T23:22:14Z",
+      "event": "stage",
+      "detail": "implementation -> human_approval: WP1.1 done: suite green twice, e2e green, STRONG review pass with HIGH/MEDIUM fixed in R1; summary in .ai/reports/T-2026-10-02-001/task.md"
+    },
+    {
+      "at": "2026-10-02T23:22:14Z",
+      "event": "gate_requested",
+      "detail": "G1: human_approval"
+    },
+    {
+      "at": "2026-10-02T23:30:16Z",
+      "event": "human_approval",
+      "detail": "granted by ikakarov via terminal"
+    },
+    {
+      "at": "2026-10-02T23:31:56Z",
+      "event": "task_closed",
+      "detail": ""
+    }
+  ],
+  "owner_runtime": "claude",
+  "resume_point": {
+    "stage": "done",
+    "step_id": null,
+    "next_action": "none — task closed",
+    "at": "2026-10-02T23:31:56Z",
+    "runtime": "claude"
+  },
+  "questions": {
+    "file": ".ai/reports/T-2026-10-02-001/questions.md",
+    "pending": []
+  },
+  "handoff": {
+    "file": ".ai/state/handoff.md",
+    "written_at": "2026-10-02T23:31:56Z",
+    "reason": "stage",
+    "pending_to": null,
+    "pending_since": null
+  },
+  "diff": {
+    "base_commit": "948f70bf2eeead65eeb59f90a0bc58cc7efe9a4d",
+    "base_tree": "36fb4b5e404de970a69af9eb9f3ed988a7b4717d",
+    "task": {
+      "files": 5,
+      "added": 567,
+      "deleted": 5,
+      "lines": 572,
+      "excluded_lines": 989,
+      "unbudgeted_lines": 4,
+      "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd",
+      "measured_at": "2026-10-02T23:16:20Z",
+      "status": "green"
+    },
+    "rescored_tier": "T3",
+    "rescore_reasons": [],
+    "over_budget": false
+  },
+  "sensors": {
+    "file": ".ai/reports/T-2026-10-02-001/sensors.json",
+    "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd",
+    "verdict": "required",
+    "checked_at": "2026-10-02T23:21:29Z"
+  },
+  "tests": {
+    "runs": [
+      {
+        "n": 1,
+        "scope": "suite",
+        "command": "bash tests/run-all.sh",
+        "tree": "9882978a2054f175ecedfa788581323c4bbbdaa2",
+        "exit": 0,
+        "duration_s": 249,
+        "log": ".ai/reports/T-2026-10-02-001/tests-suite-1.log",
+        "at": "2026-10-02T23:01:37Z",
+        "env_retry": false
+      },
+      {
+        "n": 1,
+        "scope": "e2e",
+        "command": "bash tests/test-end-to-end.sh",
+        "tree": "9882978a2054f175ecedfa788581323c4bbbdaa2",
+        "exit": 0,
+        "duration_s": 3,
+        "log": ".ai/reports/T-2026-10-02-001/tests-e2e-1.log",
+        "at": "2026-10-02T23:01:45Z",
+        "env_retry": false
+      },
+      {
+        "n": 2,
+        "scope": "suite",
+        "command": "bash tests/run-all.sh",
+        "tree": "31310db08dbabab4d9f6c7def73cd84c5d8ff7fd",
+        "exit": 0,
+        "duration_s": 257,
+        "log": ".ai/reports/T-2026-10-02-001/tests-suite-2.log",
+        "at": "2026-10-02T23:21:08Z",
+        "env_retry": false
+      }
+    ],
+    "suite_runs": 2
+  },
+  "risk_tier_lowered": {
+    "by": null,
+    "at": null,
+    "from": null
+  },
+  "cross_vendor_review": null
+}
