@@ -120,8 +120,8 @@ h2{font:700 clamp(34px,4.6vw,64px)/1.1 var(--font);letter-spacing:-.025em;margin
 .bar .track{display:flex;height:48px;overflow:hidden;margin:12px 0}
 .bar .seg{display:flex;align-items:center;padding:0 16px;white-space:nowrap;font-weight:700;font-size:15px;transform-origin:0 50%;transform:scaleX(0);transition:transform 1.2s cubic-bezier(.2,.8,.2,1)}
 .bar.in .seg{transform:none}
-.bar .ctx{flex:80;background:var(--accent);color:var(--abr-black)}
-.bar .out{flex:20;background:var(--m800);color:var(--abr-white);transition-delay:.3s}
+.bar .ctx{flex:83;background:var(--accent);color:var(--abr-black)}
+.bar .out{flex:17;background:var(--m800);color:var(--abr-white);transition-delay:.3s}
 
 /* LADDER */
 .ladder{height:320vh}
@@ -459,10 +459,10 @@ footer a{text-decoration:none;color:var(--abr-white);border-bottom:2px solid tra
   <div class="wrap">
     <div>
       <h2 id="bill-h" data-rv>The expensive part is <em>not</em> the answer.</h2>
-      <p class="sub" data-rv class="d1">Across 33,365 measured calls on one machine, <strong>80% of the cost was the session re-reading its own context</strong> — cache reads alone are 96% of all tokens — and only 20% was output. So the session model and the context length are the levers that matter.</p>
+      <p class="sub" data-rv class="d1">Across 64,684 measured calls on two machines, <strong>83% of the cost was the session re-reading its own context</strong> — cache reads alone are 97% of all tokens — and only 17% was output. So the session model and the context length are the levers that matter.</p>
       <div class="bar" data-rv id="bar">
-        <div>where a session’s cost goes · 33,365 calls, 15 projects, both runtimes</div>
-        <div class="track"><div class="seg ctx">re-reading context · 80%</div><div class="seg out">output · 20%</div></div>
+        <div>where a session’s cost goes · 64,684 calls, 28 projects, both runtimes</div>
+        <div class="track"><div class="seg ctx">re-reading context · 83%</div><div class="seg out">output · 17%</div></div>
       </div>
     </div>
     <p class="kin" id="kin" aria-label="So claude-agentic keeps one short always-loaded file per runtime, sends reading to the cheapest model, spends the strong model on plans and reviews, and never lets a subagent fan out without a reason.">
@@ -526,27 +526,27 @@ footer a{text-decoration:none;color:var(--abr-white);border-bottom:2px solid tra
 <!-- FLEET: the whole machine, not one afternoon -->
 <section class="fleet" id="fleet" aria-labelledby="fl-h">
   <div class="wrap">
-    <span class="stamp frame" data-rv>SCANNED · 3 OCT 2026 · EVERY PROJECT ON THE MACHINE</span>
-    <h2 id="fl-h" data-rv>Then we priced the <em>whole</em> machine.</h2>
-    <p class="sub" data-rv>One afternoon in two repositories is a small claim. So the same parser read <strong>every model call still on disk</strong>: both runtimes, fifteen projects, 2 Aug to 3 Oct. This is what two months of agentic work on real client code actually costs.</p>
+    <span class="stamp frame" data-rv>SCANNED · 3 OCT 2026 · EVERY PROJECT ON TWO MACHINES</span>
+    <h2 id="fl-h" data-rv>Then we priced <em>both</em> machines.</h2>
+    <p class="sub" data-rv>One afternoon in two repositories is a small claim. So the same parser read <strong>every model call still on disk</strong> on the two machines the work is split across: both runtimes, 28 projects, 2 Aug to 3 Oct. This is what two months of agentic work on real client code actually costs.</p>
     <div class="hero-num" data-rv>
-      <div class="big">$4,000</div>
-      <p>list price for two months<b>4.16B tokens · 33,365 calls · 23 active days</b></p>
+      <div class="big">$7,782</div>
+      <p>list price for two months<b>8.53B tokens · 64,684 calls · 23 + 29 active days</b></p>
     </div>
     <div class="nums">
-      <div class="num" data-rv><div class="v" data-count="96" data-suffix="%">96%</div><div class="l"><b>of tokens are cache reads</b>, billed at a tenth of the input rate — the bill is context, not code</div></div>
-      <div class="num d1" data-rv><div class="v" data-count="58">58</div><div class="l"><b>tasks through <code>/ai-task</code></b> in six repositories, every one closed, none abandoned</div></div>
-      <div class="num d2" data-rv><div class="v" data-count="11.5" data-prefix="−" data-suffix="%" data-dec="1">−11.5%</div><div class="l"><b>on the 18 T2 tasks</b> vs the same tokens on Opus alone, <a href="benchmark.html#fleet">task by task</a></div></div>
-      <div class="num d3" data-rv><div class="v" data-count="23" data-suffix="%">23%</div><div class="l"><b>of the spend is subagents</b> — readers, reviewers and testers, mostly off the top tier</div></div>
+      <div class="num" data-rv><div class="v" data-count="97" data-suffix="%">97%</div><div class="l"><b>of tokens are cache reads</b>, billed at a tenth of the input rate — the bill is context, not code</div></div>
+      <div class="num d1" data-rv><div class="v" data-count="124">124</div><div class="l"><b>tasks through <code>/ai-task</code></b> in ten repositories, every one closed, none abandoned</div></div>
+      <div class="num d2" data-rv><div class="v" data-count="13.9" data-prefix="−" data-suffix="%" data-dec="1">−13.9%</div><div class="l"><b>on the 42 T2 tasks</b> vs the same tokens on Opus alone, <a href="benchmark.html#fleet">task by task</a></div></div>
+      <div class="num d3" data-rv><div class="v" data-count="19" data-suffix="%">19%</div><div class="l"><b>of the spend is subagents</b> — readers, reviewers and testers, mostly off the top tier</div></div>
     </div>
 
     <div class="fbars" data-rv>
-      <div class="fb"><span class="n">claude-agentic<small>plugin · 15 days</small></span><span class="t"><i style="width:100%"></i></span><span class="v">$1,076</span></div>
-      <div class="fb"><span class="n">Design system v2<small>TypeScript · 13 days</small></span><span class="t"><i style="width:83%"></i></span><span class="v">$889</span></div>
-      <div class="fb"><span class="n">Desktop product editor<small>TypeScript · 8 days</small></span><span class="t"><i style="width:61%"></i></span><span class="v">$656</span></div>
-      <div class="fb"><span class="n">Learning workbench<small>prototype · 7 days</small></span><span class="t"><i style="width:42%"></i></span><span class="v">$451</span></div>
-      <div class="fb"><span class="n">Legacy storefront v1<small>PHP · Symfony</small></span><span class="t"><i style="width:25%"></i></span><span class="v">$274</span></div>
-      <div class="fb"><span class="n">ten smaller projects<small>ops, plugins, media, sites</small></span><span class="t"><i class="plain" style="width:56%"></i></span><span class="v">$600</span></div>
+      <div class="fb"><span class="n">Sylius storefront v2<small>PHP · Sylius · 26 days</small></span><span class="t"><i style="width:97%"></i></span><span class="v">$2,240</span></div>
+      <div class="fb"><span class="n">claude-agentic<small>plugin · both machines · 15 + 6 days</small></span><span class="t"><i style="width:51%"></i></span><span class="v">$1,178</span></div>
+      <div class="fb"><span class="n">Design system v2<small>TypeScript · 13 days</small></span><span class="t"><i style="width:39%"></i></span><span class="v">$889</span></div>
+      <div class="fb"><span class="n">Desktop product editor<small>TypeScript · 8 days</small></span><span class="t"><i style="width:29%"></i></span><span class="v">$656</span></div>
+      <div class="fb"><span class="n">B2B storefront<small>PHP · Sylius · 7 days</small></span><span class="t"><i style="width:20%"></i></span><span class="v">$456</span></div>
+      <div class="fb"><span class="n">22 smaller projects<small>ERP, CRM, ops, plugins, media, sites</small></span><span class="t"><i class="plain" style="width:100%"></i></span><span class="v">$2,298</span></div>
     </div>
 
     <p class="fine">Project names are generalised; the originals are client code. Orange bars are repositories that had claude-agentic installed at the time, grey ones are not. Dollars are list-price equivalents, not an invoice — the seat is a Max subscription — and the Codex rates in <code>prices.json</code> were checked against OpenAI’s published list on 26 Sep. Only transcripts still on disk when the scan ran are counted, so the window is what survived rotation, not a ledger. <a href="benchmark.html#fleet">Every project, every task and the daily curve are on the benchmark page.</a></p>
