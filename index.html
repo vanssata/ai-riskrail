@@ -461,7 +461,7 @@ footer a{text-decoration:none;color:var(--abr-white);border-bottom:2px solid tra
       <h2 id="bill-h" data-rv>The expensive part is <em>not</em> the answer.</h2>
       <p class="sub" data-rv class="d1">Across 64,684 measured calls on two machines, <strong>83% of the cost was the session re-reading its own context</strong> — cache reads alone are 97% of all tokens — and only 17% was output. So the session model and the context length are the levers that matter.</p>
       <div class="bar" data-rv id="bar">
-        <div>where a session’s cost goes · 64,684 calls, 28 projects, both runtimes</div>
+        <div>where a session’s cost goes · 64,684 calls, 27 projects, both runtimes</div>
         <div class="track"><div class="seg ctx">re-reading context · 83%</div><div class="seg out">output · 17%</div></div>
       </div>
     </div>
@@ -528,7 +528,7 @@ footer a{text-decoration:none;color:var(--abr-white);border-bottom:2px solid tra
   <div class="wrap">
     <span class="stamp frame" data-rv>SCANNED · 3 OCT 2026 · EVERY PROJECT ON TWO MACHINES</span>
     <h2 id="fl-h" data-rv>Then we priced <em>both</em> machines.</h2>
-    <p class="sub" data-rv>One afternoon in two repositories is a small claim. So the same parser read <strong>every model call still on disk</strong> on the two machines the work is split across: both runtimes, 28 projects, 2 Aug to 3 Oct. This is what two months of agentic work on real client code actually costs.</p>
+    <p class="sub" data-rv>One afternoon in two repositories is a small claim. So the same parser read <strong>every model call still on disk</strong> on the two machines the work is split across: both runtimes, 27 projects, 2 Aug to 3 Oct. This is what two months of agentic work on real client code actually costs.</p>
     <div class="hero-num" data-rv>
       <div class="big">$7,782</div>
       <p>list price for two months<b>8.53B tokens · 64,684 calls · 23 + 29 active days</b></p>
@@ -541,15 +541,15 @@ footer a{text-decoration:none;color:var(--abr-white);border-bottom:2px solid tra
     </div>
 
     <div class="fbars" data-rv>
-      <div class="fb"><span class="n">Sylius storefront v2<small>PHP · Sylius · 26 days</small></span><span class="t"><i style="width:97%"></i></span><span class="v">$2,240</span></div>
-      <div class="fb"><span class="n">claude-agentic<small>plugin · both machines · 15 + 6 days</small></span><span class="t"><i style="width:51%"></i></span><span class="v">$1,178</span></div>
-      <div class="fb"><span class="n">Design system v2<small>TypeScript · 13 days</small></span><span class="t"><i style="width:39%"></i></span><span class="v">$889</span></div>
-      <div class="fb"><span class="n">Desktop product editor<small>TypeScript · 8 days</small></span><span class="t"><i style="width:29%"></i></span><span class="v">$656</span></div>
-      <div class="fb"><span class="n">B2B storefront<small>PHP · Sylius · 7 days</small></span><span class="t"><i style="width:20%"></i></span><span class="v">$456</span></div>
+      <div class="fb"><span class="n">Rebuild a multi-channel store<small>PHP · Sylius · 26 days</small></span><span class="t"><i style="width:97%"></i></span><span class="v">$2,240</span></div>
+      <div class="fb"><span class="n">Build this plugin<small>plugin · both machines · 15 + 6 days</small></span><span class="t"><i style="width:51%"></i></span><span class="v">$1,178</span></div>
+      <div class="fb"><span class="n">Rebuild a web design system<small>TypeScript · 13 days</small></span><span class="t"><i style="width:39%"></i></span><span class="v">$889</span></div>
+      <div class="fb"><span class="n">Desktop editor for product data<small>TypeScript · 8 days</small></span><span class="t"><i style="width:29%"></i></span><span class="v">$656</span></div>
+      <div class="fb"><span class="n">Launch a B2B ordering store<small>PHP · Sylius · 7 days</small></span><span class="t"><i style="width:20%"></i></span><span class="v">$456</span></div>
       <div class="fb"><span class="n">22 smaller projects<small>ERP, CRM, ops, plugins, media, sites</small></span><span class="t"><i class="plain" style="width:100%"></i></span><span class="v">$2,298</span></div>
     </div>
 
-    <p class="fine">Project names are generalised; the originals are client code. Orange bars are repositories that had claude-agentic installed at the time, grey ones are not. Dollars are list-price equivalents, not an invoice — the seat is a Max subscription — and the Codex rates in <code>prices.json</code> were checked against OpenAI’s published list on 26 Sep. Only transcripts still on disk when the scan ran are counted, so the window is what survived rotation, not a ledger. <a href="benchmark.html#fleet">Every project, every task and the daily curve are on the benchmark page.</a></p>
+    <p class="fine">Projects are named by their goal, not their name; the originals are client code. Orange bars are repositories that had claude-agentic installed at the time, grey ones are not. Dollars are list-price equivalents, not an invoice — the seat is a Max subscription — and the Codex rates in <code>prices.json</code> were checked against OpenAI’s published list on 26 Sep. Only transcripts still on disk when the scan ran are counted, so the window is what survived rotation, not a ledger. <a href="benchmark.html#fleet">Every project, every task and the daily curve are on the benchmark page.</a></p>
   </div>
 </section>
 
