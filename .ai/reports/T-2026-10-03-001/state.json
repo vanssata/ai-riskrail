@@ -1,0 +1,526 @@
+{
+  "task_id": "T-2026-10-03-001",
+  "goal": "WP1.2: ERE translator and the differential's runner",
+  "workflow": "refactoring",
+  "risk_tier": "T3",
+  "current_stage": "done",
+  "affected_modules": [],
+  "context_summary_ref": null,
+  "approved_plan": {
+    "ref": "docs/sdlc/plans/os-independent-installer-packaging-wp1-guards-in-python.md",
+    "current_step_id": null,
+    "steps": [
+      {
+        "step_id": "1",
+        "description": "hooks/lib/ai_ere.py, the parser (spec D3): a byte-level tokenizer over the pattern's UTF-8 bytes (C-locale semantics, H2/D6) and bracket expressions. [[:class:]] is an ASCII set, [[:space:]] is [ \\t\\n\\v\\f\\r]; a backslash inside brackets is literal; []a], [^]a] and a trailing '-' are handled; single-character [[=c=]] and [[.c.]] are accepted, as range endpoints too; bad ranges, '-' as a non-final range start, a class or equivalence class as a range endpoint, unknown classes, multi-character [[.x.]]/[[=x=]] and an unterminated [ raise EreError. Tokens for the rest: escapes (GNU ops, back-references, literal escapes), anchors, groups, alternation, quantifiers and {m,n} intervals. tests/test_ere_unit.py starts with the parser cases; add tests/test-ere-unit.sh (two-line wrapper) and the run-all.sh entry. By hand: pylint --rcfile .pylintrc on both new .py files.",
+        "allowed_files": [
+          "hooks/lib/ai_ere.py"
+        ],
+        "required_tests": [
+          "tests/test-ere-unit.sh"
+        ],
+        "forbidden_files": [
+          "tests/test_ere_unit.py",
+          "tests/test-ere-unit.sh",
+          "tests/run-all.sh"
+        ],
+        "forbidden_reason": "moved to step 1.2",
+        "status": "done",
+        "kind": "implementation",
+        "tree_before": "88c484ae6dbc57e5d70827b78f2ab11d0863a729",
+        "diff": {
+          "tree_after": "e096a6908251fbaf80a7d65d6056740a0b4b463a",
+          "seq": 1,
+          "paths": [
+            "hooks/lib/ai_ere.py"
+          ],
+          "files": 1,
+          "added": 181,
+          "deleted": 0,
+          "lines": 181,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      },
+      {
+        "step_id": "1.2",
+        "description": "291 > 250: the parser's unit cases, their wrapper and the run-all entry become their own step; the parser stays in step 1",
+        "allowed_files": [
+          "tests/test_ere_unit.py",
+          "tests/test-ere-unit.sh",
+          "tests/run-all.sh"
+        ],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this step",
+        "required_tests": [],
+        "status": "done",
+        "kind": "implementation",
+        "tree_before": "88c484ae6dbc57e5d70827b78f2ab11d0863a729",
+        "diff": {
+          "tree_after": "e096a6908251fbaf80a7d65d6056740a0b4b463a",
+          "seq": 2,
+          "paths": [
+            "tests/run-all.sh",
+            "tests/test-ere-unit.sh",
+            "tests/test_ere_unit.py"
+          ],
+          "files": 3,
+          "added": 110,
+          "deleted": 0,
+          "lines": 110,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      },
+      {
+        "step_id": "2",
+        "description": "hooks/lib/ai_ere.py, translate and compile: the GNU escapes \\w \\W \\s \\S \\b \\B \\< \\> \\` \\' as explicit ASCII sets and lookarounds (re.ASCII); back-references \\1-\\9 to a completed group, emitted as (?:\\N); stacked quantifiers wrapped, so a+? and a*? become (?:a+)?; '.' with DOTALL and '$' as \\Z (no REG_NEWLINE); a lone ')' is literal; invalid forms compile to None, which never matches: a leading *, + , ? or {, a quantifier after an anchor, (?, a bad interval, a trailing backslash, an unmatched ( or [, a back-reference to an open or absent group; the { cases follow glibc's parse_dup_op and are left to the oracle; compiled as a bytes regex; a cache per process; Ere.search and Ere.captures (subject encoded UTF-8, captures decoded with surrogateescape). Unit cases for each, including the invalid forms (R6, unit part). By hand: pylint on the .py files.",
+        "allowed_files": [
+          "hooks/lib/ai_ere.py",
+          "tests/test_ere_unit.py"
+        ],
+        "required_tests": [
+          "tests/test-ere-unit.sh"
+        ],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this step",
+        "status": "done",
+        "kind": "implementation",
+        "tree_before": "e096a6908251fbaf80a7d65d6056740a0b4b463a",
+        "diff": {
+          "tree_after": "2ee398891ebfcfcf408ccebca6b6cb7d2ce5f092",
+          "seq": 3,
+          "paths": [
+            "hooks/lib/ai_ere.py",
+            "tests/test_ere_unit.py"
+          ],
+          "files": 2,
+          "added": 227,
+          "deleted": 1,
+          "lines": 228,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      },
+      {
+        "step_id": "3",
+        "description": "tests/test_pattern_differential.py, the oracle and the runner (D4 ii): one long-lived bash per locale (C, C.UTF-8; a missing locale is skipped with one line) reads NUL-delimited pattern/subject records and answers through [[ $s =~ $p ]] (rc 0/1/2 = match/no match/invalid); the verdict is compared with ai_ere (None = invalid). The declared-divergence list (D6) lives inside the test. A failure names the pattern, the subject, both verdicts and the seed (AI_DIFF_SEED, default 20261003, printed). For now it covers every string of both defaults files (except _comment) over the characterization corpus: the COMMANDS array of tests/test-guard-characterization.sh read through bash, its file-tool paths from the golden labels, and every string of the fixture payloads. Without bash it skips with one line. Add tests/test-pattern-differential.sh and the run-all.sh entry. By hand: pylint on the new .py file.",
+        "allowed_files": [
+          "tests/test_pattern_differential.py",
+          "tests/test-pattern-differential.sh",
+          "tests/run-all.sh"
+        ],
+        "required_tests": [
+          "tests/test-pattern-differential.sh"
+        ],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this step",
+        "status": "done",
+        "kind": "implementation",
+        "tree_before": "2ee398891ebfcfcf408ccebca6b6cb7d2ce5f092",
+        "diff": {
+          "tree_after": "e1f2a9053ddcee79837cb0f4654437ba48c6059e",
+          "seq": 4,
+          "paths": [
+            "tests/run-all.sh",
+            "tests/test-pattern-differential.sh",
+            "tests/test_pattern_differential.py"
+          ],
+          "files": 3,
+          "added": 158,
+          "deleted": 1,
+          "lines": 159,
+          "unscoped": [],
+          "binary": [],
+          "status": "green"
+        }
+      },
+      {
+        "step_id": "R1",
+        "description": "3 review findings: #2 stacked quantifiers merged into one; #3 stack-dependent None not cached; #4 DECLARED [[.x.]] entry dropped. #1 goes to WP1.3",
+        "allowed_files": [
+          "hooks/lib/ai_ere.py",
+          "tests/test_ere_unit.py",
+          "tests/test-ere-unit.sh",
+          "tests/run-all.sh",
+          "tests/test_pattern_differential.py",
+          "tests/test-pattern-differential.sh"
+        ],
+        "forbidden_files": [],
+        "forbidden_reason": "not part of this task",
+        "required_tests": [],
+        "status": "done",
+        "kind": "remediation",
+        "tree_before": null,
+        "diff": {
+          "tree_after": "114b25c056ed706646e65b9a6d98e846799724a5",
+          "paths": [
+            "hooks/lib/ai_ere.py",
+            "tests/run-all.sh",
+            "tests/test-ere-unit.sh",
+            "tests/test-pattern-differential.sh",
+            "tests/test_ere_unit.py",
+            "tests/test_pattern_differential.py"
+          ],
+          "files": 6,
+          "added": 712,
+          "deleted": 0,
+          "lines": 712,
+          "unscoped": [],
+          "binary": [],
+          "status": "red"
+        }
+      }
+    ]
+  },
+  "completed_steps": [
+    "1",
+    "1.2",
+    "2",
+    "3",
+    "R1"
+  ],
+  "test_status": "passing",
+  "e2e_status": "passing",
+  "review_status": "passed",
+  "security_status": "not_applicable",
+  "open_risks": [
+    "review #1 (MEDIUM, WP1.3 decision): glibc never matches a back-reference to an empty-able group repeated with min>=2, e.g. (a*){2}\\1 on aa; ai_ere does. Defaults hold no back-references.",
+    "review #2 (MEDIUM, narrowed, WP1.3 D5): only *, + and ? under a repeat fold; an interval under a repeat still backtracks exponentially, a?{2}+b 16 s and a{1,3}+b 33 s at ~35 bytes, as do (a*)*b and (a+)+b. No timeout until D5.",
+    "review #3 residual: patterns nested deeper than ~190 groups exceed Python's recursion limit and give None (never matches) though glibc accepts them; no longer cached. Depth limit for the spec owner.",
+    "tooling: remediate sets no tree_before, so step-done measures a remediation from the task's base tree; R1 closed with --force (known-risks.md). glibc's oracle can spin on a stack before \\1 (known-risks.md)."
+  ],
+  "next_action": "none — task closed",
+  "human_approval": {
+    "required": true,
+    "granted": true,
+    "granted_by": "Ivan Kakurov",
+    "granted_at": "2026-10-03T08:58:35Z",
+    "requested_at": null,
+    "gate_id": null,
+    "requested_session": null,
+    "rejected_at": null,
+    "via": "terminal",
+    "unattended": false
+  },
+  "created_at": "2026-10-03T00:15:08Z",
+  "updated_at": "2026-10-03T09:01:06Z",
+  "history": [
+    {
+      "at": "2026-10-03T00:15:08Z",
+      "event": "task_started",
+      "detail": "WP1.2: ERE translator and the differential's runner (refactoring)"
+    },
+    {
+      "at": "2026-10-03T00:15:08Z",
+      "event": "stage",
+      "detail": "discovery -> discovery: inline"
+    },
+    {
+      "at": "2026-10-03T00:15:08Z",
+      "event": "stage",
+      "detail": "discovery -> context: inline"
+    },
+    {
+      "at": "2026-10-03T00:15:08Z",
+      "event": "stage",
+      "detail": "context -> impact_analysis: inline"
+    },
+    {
+      "at": "2026-10-03T00:15:08Z",
+      "event": "stage",
+      "detail": "impact_analysis -> risk_classification: inline"
+    },
+    {
+      "at": "2026-10-03T00:15:08Z",
+      "event": "risk_classified",
+      "detail": "T3: refactoring of shared code; plan approved in plan mode"
+    },
+    {
+      "at": "2026-10-03T00:15:08Z",
+      "event": "plan_approved",
+      "detail": "1 step, inline (quick)"
+    },
+    {
+      "at": "2026-10-03T00:15:08Z",
+      "event": "stage",
+      "detail": "risk_classification -> plan -> implementation: quick"
+    },
+    {
+      "at": "2026-10-03T00:15:08Z",
+      "event": "step_started",
+      "detail": "1: WP1.2: ERE translator and the differential's runner"
+    },
+    {
+      "at": "2026-10-03T00:15:08Z",
+      "event": "plan_approved",
+      "detail": "3 steps, docs/sdlc/plans/os-independent-installer-packaging-wp1-guards-in-python.md"
+    },
+    {
+      "at": "2026-10-03T00:15:12Z",
+      "event": "step_started",
+      "detail": "1: hooks/lib/ai_ere.py, the parser (spec D3): a byte-level tokenizer over the pattern's UTF-8 bytes (C-locale semantics, H2/D6) and bracket expressions. [[:class:]] is an ASCII set, [[:space:]] is [ \\t\\n\\v\\f\\r]; a backslash inside brackets is literal; []a], [^]a] and a trailing '-' are handled; single-character [[=c=]] and [[.c.]] are accepted, as range endpoints too; bad ranges, '-' as a non-final range start, a class or equivalence class as a range endpoint, unknown classes, multi-character [[.x.]]/[[=x=]] and an unterminated [ raise EreError. Tokens for the rest: escapes (GNU ops, back-references, literal escapes), anchors, groups, alternation, quantifiers and {m,n} intervals. tests/test_ere_unit.py starts with the parser cases; add tests/test-ere-unit.sh (two-line wrapper) and the run-all.sh entry. By hand: pylint --rcfile .pylintrc on both new .py files."
+    },
+    {
+      "at": "2026-10-03T00:18:49Z",
+      "event": "scope_change",
+      "detail": "1 -> 1.2: tests/test_ere_unit.py, tests/test-ere-unit.sh, tests/run-all.sh"
+    },
+    {
+      "at": "2026-10-03T00:18:49Z",
+      "event": "step_completed",
+      "detail": "1"
+    },
+    {
+      "at": "2026-10-03T00:18:53Z",
+      "event": "step_started",
+      "detail": "1.2: 291 > 250: the parser's unit cases, their wrapper and the run-all entry become their own step; the parser stays in step 1"
+    },
+    {
+      "at": "2026-10-03T00:18:53Z",
+      "event": "step_completed",
+      "detail": "1.2"
+    },
+    {
+      "at": "2026-10-03T00:20:01Z",
+      "event": "step_started",
+      "detail": "2: hooks/lib/ai_ere.py, translate and compile: the GNU escapes \\w \\W \\s \\S \\b \\B \\< \\> \\` \\' as explicit ASCII sets and lookarounds (re.ASCII); back-references \\1-\\9 to a completed group, emitted as (?:\\N); stacked quantifiers wrapped, so a+? and a*? become (?:a+)?; '.' with DOTALL and '$' as \\Z (no REG_NEWLINE); a lone ')' is literal; invalid forms compile to None, which never matches: a leading *, + , ? or {, a quantifier after an anchor, (?, a bad interval, a trailing backslash, an unmatched ( or [, a back-reference to an open or absent group; the { cases follow glibc's parse_dup_op and are left to the oracle; compiled as a bytes regex; a cache per process; Ere.search and Ere.captures (subject encoded UTF-8, captures decoded with surrogateescape). Unit cases for each, including the invalid forms (R6, unit part). By hand: pylint on the .py files."
+    },
+    {
+      "at": "2026-10-03T00:27:25Z",
+      "event": "step_completed",
+      "detail": "2"
+    },
+    {
+      "at": "2026-10-03T00:28:16Z",
+      "event": "step_started",
+      "detail": "3: tests/test_pattern_differential.py, the oracle and the runner (D4 ii): one long-lived bash per locale (C, C.UTF-8; a missing locale is skipped with one line) reads NUL-delimited pattern/subject records and answers through [[ $s =~ $p ]] (rc 0/1/2 = match/no match/invalid); the verdict is compared with ai_ere (None = invalid). The declared-divergence list (D6) lives inside the test. A failure names the pattern, the subject, both verdicts and the seed (AI_DIFF_SEED, default 20261003, printed). For now it covers every string of both defaults files (except _comment) over the characterization corpus: the COMMANDS array of tests/test-guard-characterization.sh read through bash, its file-tool paths from the golden labels, and every string of the fixture payloads. Without bash it skips with one line. Add tests/test-pattern-differential.sh and the run-all.sh entry. By hand: pylint on the new .py file."
+    },
+    {
+      "at": "2026-10-03T00:29:21Z",
+      "event": "step_completed",
+      "detail": "3"
+    },
+    {
+      "at": "2026-10-03T00:34:00Z",
+      "event": "field_set",
+      "detail": "test_status = passing (suite run 1, exit 0)"
+    },
+    {
+      "at": "2026-10-03T00:34:08Z",
+      "event": "field_set",
+      "detail": "e2e_status = passing (e2e run 1, exit 0)"
+    },
+    {
+      "at": "2026-10-03T00:34:18Z",
+      "event": "field_set",
+      "detail": "sensors: review required"
+    },
+    {
+      "at": "2026-10-03T01:05:41Z",
+      "event": "set",
+      "detail": "review_status = passed"
+    },
+    {
+      "at": "2026-10-03T07:16:16Z",
+      "event": "remediation",
+      "detail": "R1: 3 review findings: #2 stacked quantifiers merged into one; #3 stack-dependent None not cached; #4 DECLARED [[.x.]] entry dropped. #1 goes to WP1.3"
+    },
+    {
+      "at": "2026-10-03T07:16:16Z",
+      "event": "step_started",
+      "detail": "R1: 3 review findings: #2 stacked quantifiers merged into one; #3 stack-dependent None not cached; #4 DECLARED [[.x.]] entry dropped. #1 goes to WP1.3"
+    },
+    {
+      "at": "2026-10-03T07:41:24Z",
+      "event": "risk_added",
+      "detail": "review #1 (MEDIUM, WP1.3 decision): glibc never matches a back-reference to an empty-able group repeated with min>=2, e.g. (a*){2}\\1 on aa; ai_ere does. Defaults hold no back-references."
+    },
+    {
+      "at": "2026-10-03T07:41:24Z",
+      "event": "risk_added",
+      "detail": "review #2 residual: only *, + and ? under a repeat are merged; a non-interval stack such as a{1,2}* and a user's own (a*)* still backtrack exponentially in Python. The differential's timeout and budget stay WP1.3's (D5)."
+    },
+    {
+      "at": "2026-10-03T07:41:24Z",
+      "event": "risk_added",
+      "detail": "review #3 residual: patterns nested deeper than ~190 groups exceed Python's recursion limit and give None (never matches) though glibc accepts them; no longer cached. Depth limit for the spec owner."
+    },
+    {
+      "at": "2026-10-03T08:31:03Z",
+      "event": "step_completed",
+      "detail": "R1"
+    },
+    {
+      "at": "2026-10-03T08:35:24Z",
+      "event": "field_set",
+      "detail": "test_status = passing (suite run 2, exit 0)"
+    },
+    {
+      "at": "2026-10-03T08:35:30Z",
+      "event": "field_set",
+      "detail": "e2e_status = passing (e2e run 2, exit 0)"
+    },
+    {
+      "at": "2026-10-03T08:35:41Z",
+      "event": "field_set",
+      "detail": "sensors: review required"
+    },
+    {
+      "at": "2026-10-03T08:42:39Z",
+      "event": "set",
+      "detail": "review_status = passed"
+    },
+    {
+      "at": "2026-10-03T08:55:49Z",
+      "event": "risks_cleared",
+      "detail": ""
+    },
+    {
+      "at": "2026-10-03T08:55:49Z",
+      "event": "risk_added",
+      "detail": "review #1 (MEDIUM, WP1.3 decision): glibc never matches a back-reference to an empty-able group repeated with min>=2, e.g. (a*){2}\\1 on aa; ai_ere does. Defaults hold no back-references."
+    },
+    {
+      "at": "2026-10-03T08:55:49Z",
+      "event": "risk_added",
+      "detail": "review #2 (MEDIUM, narrowed, WP1.3 D5): only *, + and ? under a repeat fold; an interval under a repeat still backtracks exponentially, a?{2}+b 16 s and a{1,3}+b 33 s at ~35 bytes, as do (a*)*b and (a+)+b. No timeout until D5."
+    },
+    {
+      "at": "2026-10-03T08:55:49Z",
+      "event": "risk_added",
+      "detail": "review #3 residual: patterns nested deeper than ~190 groups exceed Python's recursion limit and give None (never matches) though glibc accepts them; no longer cached. Depth limit for the spec owner."
+    },
+    {
+      "at": "2026-10-03T08:55:49Z",
+      "event": "risk_added",
+      "detail": "tooling: remediate sets no tree_before, so step-done measures a remediation from the task's base tree; R1 closed with --force (known-risks.md). glibc's oracle can spin on a stack before \\1 (known-risks.md)."
+    },
+    {
+      "at": "2026-10-03T08:56:11Z",
+      "event": "stage",
+      "detail": "implementation -> human_approval: T3 close-out shown: suite run 2 and e2e run 2 green, review + scoped re-review passed, 4 open risks recorded"
+    },
+    {
+      "at": "2026-10-03T08:56:11Z",
+      "event": "gate_requested",
+      "detail": "G1: human_approval"
+    },
+    {
+      "at": "2026-10-03T08:58:35Z",
+      "event": "human_approval",
+      "detail": "granted by Ivan Kakurov via terminal"
+    },
+    {
+      "at": "2026-10-03T09:01:03Z",
+      "event": "set",
+      "detail": "security_status = not_applicable"
+    },
+    {
+      "at": "2026-10-03T09:01:06Z",
+      "event": "task_closed",
+      "detail": ""
+    }
+  ],
+  "owner_runtime": "claude",
+  "resume_point": {
+    "stage": "done",
+    "step_id": null,
+    "next_action": "none — task closed",
+    "at": "2026-10-03T09:01:06Z",
+    "runtime": "claude"
+  },
+  "questions": {
+    "file": ".ai/reports/T-2026-10-03-001/questions.md",
+    "pending": []
+  },
+  "handoff": {
+    "file": ".ai/state/handoff.md",
+    "written_at": "2026-10-03T09:01:06Z",
+    "reason": "stage",
+    "pending_to": null,
+    "pending_since": null
+  },
+  "diff": {
+    "base_commit": "15bc427834e4791a52243d003c80f1ab91e829cd",
+    "base_tree": "88c484ae6dbc57e5d70827b78f2ab11d0863a729",
+    "task": {
+      "files": 6,
+      "added": 712,
+      "deleted": 0,
+      "lines": 712,
+      "excluded_lines": 0,
+      "unbudgeted_lines": 0,
+      "tree": "114b25c056ed706646e65b9a6d98e846799724a5",
+      "measured_at": "2026-10-03T08:31:03Z",
+      "status": "green"
+    },
+    "rescored_tier": "T3",
+    "rescore_reasons": [],
+    "over_budget": false
+  },
+  "sensors": {
+    "file": ".ai/reports/T-2026-10-03-001/sensors.json",
+    "tree": "114b25c056ed706646e65b9a6d98e846799724a5",
+    "verdict": "required",
+    "checked_at": "2026-10-03T08:35:41Z"
+  },
+  "tests": {
+    "runs": [
+      {
+        "n": 1,
+        "scope": "suite",
+        "command": "bash tests/run-all.sh",
+        "tree": "e1f2a9053ddcee79837cb0f4654437ba48c6059e",
+        "exit": 0,
+        "duration_s": 241,
+        "log": ".ai/reports/T-2026-10-03-001/tests-suite-1.log",
+        "at": "2026-10-03T00:34:00Z",
+        "env_retry": false
+      },
+      {
+        "n": 1,
+        "scope": "e2e",
+        "command": "bash tests/test-end-to-end.sh",
+        "tree": "e1f2a9053ddcee79837cb0f4654437ba48c6059e",
+        "exit": 0,
+        "duration_s": 3,
+        "log": ".ai/reports/T-2026-10-03-001/tests-e2e-1.log",
+        "at": "2026-10-03T00:34:08Z",
+        "env_retry": false
+      },
+      {
+        "n": 2,
+        "scope": "suite",
+        "command": "bash tests/run-all.sh",
+        "tree": "114b25c056ed706646e65b9a6d98e846799724a5",
+        "exit": 0,
+        "duration_s": 258,
+        "log": ".ai/reports/T-2026-10-03-001/tests-suite-2.log",
+        "at": "2026-10-03T08:35:24Z",
+        "env_retry": false
+      },
+      {
+        "n": 2,
+        "scope": "e2e",
+        "command": "bash tests/test-end-to-end.sh",
+        "tree": "114b25c056ed706646e65b9a6d98e846799724a5",
+        "exit": 0,
+        "duration_s": 3,
+        "log": ".ai/reports/T-2026-10-03-001/tests-e2e-2.log",
+        "at": "2026-10-03T08:35:30Z",
+        "env_retry": false
+      }
+    ],
+    "suite_runs": 2
+  },
+  "risk_tier_lowered": {
+    "by": null,
+    "at": null,
+    "from": null
+  },
+  "cross_vendor_review": null
+}
