@@ -59,3 +59,21 @@
 - **How likely / how bad**: deliberate padding only.
 - **Suggested fix**: deny or skip the ERE for a line over a fixed length that contains both `update` and `--co`.
 - **Status**: open
+
+## A remediation step is measured from the task's base tree
+
+- **Found**: 2026-10-03, by T-2026-10-03-001 (R1)
+- **Where**: `skills/ai-task/state.py:1077` (`cmd_remediate` never sets `tree_before`), `:928` (`step-done` falls back to `diff.base_tree`)
+- **What could go wrong**: KNOWN FACT: `step-done R1` measured the whole task (712 lines > 250) for a remediation that changed 54 lines, so the diff gate refuses every remediation in a task over the step budget and `--force` becomes the routine way out.
+- **How likely / how bad**: every remediation after a task of more than 250 lines; it teaches the gate to be overridden.
+- **Suggested fix**: stamp `tree_before` with `sensors.snapshot_tree` in `cmd_remediate`, as `cmd_step` does at `:899-900`.
+- **Status**: open
+
+## glibc's matcher, the differential's oracle, can spin on a stacked repeat before a back-reference
+
+- **Found**: 2026-10-03, by T-2026-10-03-001 (R1 probe)
+- **Where**: `tests/test_pattern_differential.py` (one long-lived bash per locale, no per-record timeout)
+- **What could go wrong**: KNOWN FACT: `[[ $s =~ $p ]]` ran past 2 s (one record past 400 s) on 116 of 132,840 probe records, all a stacked quantifier over a group followed by `\1`, e.g. `(a)**+\1`; Python hangs likewise on `(a*){2,}{2,}+$`. A random corpus in WP1.3 that draws such a pattern stalls the run with no failure line.
+- **How likely / how bad**: needs a user pattern of that shape; the run hangs instead of failing.
+- **Suggested fix**: a per-record time limit on both engines, reported as its own verdict (D5, WP1.3).
+- **Status**: open
