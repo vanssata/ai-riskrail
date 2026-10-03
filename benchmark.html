@@ -8,7 +8,7 @@
 <meta property="og:title" content="claude-agentic benchmark: plain Claude, plain Codex, claude-agentic">
 <meta property="og:description" content="42 tasks taken from two weeks of real work, risk-tiered, graded by hidden tests. Suite and protocol published before the first run.">
 <meta name="theme-color" content="#221A15">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23221A15'/%3E%3Cpath d='M18 44V20h6l16 24h6V20' fill='none' stroke='%23E39B6B' stroke-width='5'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23221A15'/%3E%3Cpath d='M32 8H41a10 10 0 0 1 0 20H32M32 8H23a10 10 0 0 0 0 20H32M32 8V56M32 28L47 56M32 28L17 56M8 46H56' fill='none' stroke='%23E39B6B' stroke-width='5'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -44,7 +44,7 @@ code{font-family:var(--mono);font-size:.84em;background:var(--m50);border:1px so
 
 .rail{position:fixed;inset:0 0 auto 0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:16px;height:72px;padding:0 var(--gut);background:var(--abr-black);color:var(--abr-white)}
 .brand{display:flex;align-items:center;gap:12px;font-weight:700;font-size:18px;text-decoration:none;color:var(--abr-white)}
-.brand svg{width:28px;height:28px}
+.brand svg{width:32px;height:32px}.brand .wm{letter-spacing:-.01em}.brand .wm span{font-weight:400}.brand .wm i{font-style:normal;color:var(--accent)}
 .rail nav{display:flex;gap:28px;font-size:16px;font-weight:400}
 .rail nav a{text-decoration:none;color:var(--m200);padding:8px 0;border-bottom:2px solid transparent}
 .rail nav a:hover,.rail nav a[aria-current]{color:var(--abr-white);border-bottom-color:currentColor}
@@ -249,9 +249,9 @@ table.fleet{min-width:940px}
 </svg>
 
 <header class="rail">
-  <a class="brand" href="./" aria-label="claude-agentic home">
-    <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" fill="#E39B6B"/><path d="M18 44V20h6l16 24h6V20" fill="none" stroke="#221A15" stroke-width="5"/></svg>
-    claude-agentic
+  <a class="brand" href="./" aria-label="RiskRail home">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 8H41a10 10 0 0 1 0 20H32M32 8H23a10 10 0 0 0 0 20H32M32 8V56M32 28L47 56M32 28L17 56M8 46H56" fill="none" stroke="#E39B6B" stroke-width="5"/></svg>
+    <span class="wm"><span>Risk</span>R<i>ai</i>l</span>
   </a>
   <nav aria-label="Sections">
     <a href="#arms">Arms</a><a href="#suite">Tasks</a><a href="#scoring">Scoring</a><a href="#costs">Costs</a><a href="#fleet">Machine</a><a href="#results">Results</a><a href="#reproduce">Reproduce</a><a href="demo.html">Demo</a><a href="./">Home</a>
